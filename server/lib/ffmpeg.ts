@@ -90,16 +90,16 @@ export async function convertToHLS(
         console.log(`Processing: ${progress.percent?.toFixed(1) || 0}% done`);
       })
       // HLS output options optimized for small chunks
+      .audioCodec('aac')
+      .audioBitrate('64k')
       .outputOptions([
-        '-start_number 0',
         '-hls_time 6', // 6 second segments for reasonable chunk sizes
         '-hls_list_size 0',
         '-hls_segment_type mpegts',
+        '-hls_segment_filename', chunkPattern,
         '-f hls',
-        // Audio encoding for smaller chunks
-        '-c:a aac', // AAC audio codec
-        '-b:a 64k', // Lower audio bitrate for smaller chunks
-        '-c:v copy', // Copy video if present (no re-encoding)
+        '-start_number 0',
+        '-vn', // Disable video for audio-only files
       ])
       .output(playlistPath)
       .run();
