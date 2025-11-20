@@ -55,6 +55,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid or expired nonce" });
       }
 
+      // Check nonce expiration
+      if (storedNonce.expiresAt < new Date()) {
+        await storage.deleteNonce(walletAddress);
+        return res.status(401).json({ error: "Nonce has expired" });
+      }
+
       // Verify signature
       const recoveredAddress = verifyMessage(message, signature);
       
