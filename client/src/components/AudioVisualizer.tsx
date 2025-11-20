@@ -18,8 +18,8 @@ export default function AudioVisualizer({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceMapRef = useRef<Map<HTMLAudioElement | HTMLVideoElement, MediaElementAudioSourceNode>>(new Map());
-  const activeSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const connectedElementRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null);
   const barsRef = useRef<THREE.Mesh[]>([]);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -114,16 +114,40 @@ export default function AudioVisualizer({
   // Setup Web Audio API when audio element changes
   useEffect(() => {
     if (!audioElement) {
-      // Disconnect active source when no audio element
-      if (activeSourceRef.current) {
+      // Cleanup when no audio element
+      if (sourceRef.current) {
         try {
-          activeSourceRef.current.disconnect();
+          sourceRef.current.disconnect();
         } catch (e) {
           // Already disconnected
         }
-        activeSourceRef.current = null;
+        sourceRef.current = null;
+        connectedElementRef.current = null;
       }
       return;
+    }
+
+    // If this is the same element we're already connected to, reuse the connection
+    if (connectedElementRef.current === audioElement && sourceRef.current) {
+      // Ensure connections are still intact
+      try {
+        sourceRef.current.connect(analyserRef.current!);
+        analyserRef.current!.connect(audioCtxRef.current!.destination);
+      } catch (e) {
+        // Already connected
+      }
+      return;
+    }
+
+    // Different element - need to disconnect old and create new
+    if (sourceRef.current && connectedElementRef.current !== audioElement) {
+      try {
+        sourceRef.current.disconnect();
+      } catch (e) {
+        // Already disconnected
+      }
+      sourceRef.current = null;
+      connectedElementRef.current = null;
     }
 
     // Create or reuse audio context
@@ -139,45 +163,22 @@ export default function AudioVisualizer({
       analyser.fftSize = 256; // 128 frequency bins
       analyser.smoothingTimeConstant = 0.8;
       analyserRef.current = analyser;
-      // Connect analyser to destination once
-      analyser.connect(audioCtx.destination);
     }
 
-    // Disconnect current active source
-    if (activeSourceRef.current) {
-      try {
-        activeSourceRef.current.disconnect();
-      } catch (e) {
-        // Already disconnected
-      }
-      activeSourceRef.current = null;
-    }
-
-    // Check if we already have a source for this element
-    let source = sourceMapRef.current.get(audioElement);
-
-    if (!source) {
-      // Create new source for this element
-      try {
-        source = audioCtx.createMediaElementSource(audioElement);
-        sourceMapRef.current.set(audioElement, source);
-      } catch (error) {
-        console.error('Failed to create audio source:', error);
-        return;
-      }
-    }
-
-    // Connect the source to the analyser
+    // Create new source from current audio element
     try {
+      const source = audioCtx.createMediaElementSource(audioElement);
       source.connect(analyserRef.current);
-      activeSourceRef.current = source;
-    } catch (e) {
-      // Already connected - this is fine
-      activeSourceRef.current = source;
+      analyserRef.current.connect(audioCtx.destination);
+      sourceRef.current = source;
+      connectedElementRef.current = audioElement;
+    } catch (error) {
+      // Element might already have a source node - this shouldn't happen with our checks
+      console.error('Failed to create audio source:', error);
     }
 
     return () => {
-      // Don't disconnect on cleanup - only when element changes
+      // Don't disconnect on cleanup - only when element changes or unmounts completely
       // This prevents audio interruption when visualizer toggles
     };
   }, [audioElement]);
