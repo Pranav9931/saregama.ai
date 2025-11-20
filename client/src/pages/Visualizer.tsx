@@ -244,7 +244,7 @@ export default function Visualizer() {
         <ChunkIndicator totalChunks={totalChunks} currentChunk={currentChunk} />
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-8">
+      <div className="fixed bottom-16 left-0 right-0 z-50 p-8">
         <div className="flex items-center justify-center gap-6">
           <Button
             size="icon"
