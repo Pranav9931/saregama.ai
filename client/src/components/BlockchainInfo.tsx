@@ -5,7 +5,7 @@ import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { CatalogChunk } from '@shared/schema';
 
-const MENDOZA_EXPLORER_URL = 'https://mendoza.hoodi.arkiv.network';
+const MENDOZA_EXPLORER_URL = 'https://explorer.mendoza.hoodi.arkiv.network';
 
 interface BlockchainInfoProps {
   masterPlaylistTxHash?: string | null;
