@@ -1,23 +1,17 @@
-import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Play, Clock, Wallet } from 'lucide-react';
+import { ArrowLeft, Play } from 'lucide-react';
 import WalletButton from '@/components/WalletButton';
 import ThemeToggle from '@/components/ThemeToggle';
 import BlockchainInfo from '@/components/BlockchainInfo';
-import { useWallet } from '@/contexts/WalletContext';
-import { useToast } from '@/hooks/use-toast';
-import { queryClient } from '@/lib/queryClient';
+import RentalPayment from '@/components/RentalPayment';
 import type { CatalogItem, CatalogChunk } from '@shared/schema';
 
 export default function TrackDetail() {
   const { id } = useParams<{ id: string }>();
-  const { walletAddress, isConnected } = useWallet();
-  const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const { data: item, isLoading } = useQuery<CatalogItem & { chunkCount: number }>({
     queryKey: ['/api/catalog', id],
@@ -28,65 +22,6 @@ export default function TrackDetail() {
     queryKey: ['/api/catalog', id, 'chunks'],
     enabled: !!id,
   });
-
-  const rentalMutation = useMutation({
-    mutationFn: async () => {
-      if (!walletAddress || !item) throw new Error('Missing requirements');
-
-      // Simulate payment transaction (in production, use MetaMask to send ETH)
-      const mockTxHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-
-      const response = await fetch('/api/rentals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress,
-          catalogItemId: item.id,
-          txHash: mockTxHash,
-          rentalDurationDays: 30,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create rental');
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/rentals'] });
-      toast({
-        title: 'Rental Successful!',
-        description: 'Track has been added to your library',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Rental Failed',
-        description: String(error),
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const handleRent = async () => {
-    if (!isConnected) {
-      toast({
-        title: 'Connect Wallet',
-        description: 'Please connect your wallet to rent this track',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      // In production, request payment via MetaMask here
-      await rentalMutation.mutateAsync();
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -198,48 +133,7 @@ export default function TrackDetail() {
               )}
             </div>
 
-            <Card className="p-6">
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">Rent this track</h3>
-                  <p className="text-sm text-muted-foreground">30-day streaming access</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold">{item.priceEth} ETH</div>
-                  <p className="text-xs text-muted-foreground">≈ $0.30 USD</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>Access expires after 30 days</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Wallet className="w-4 h-4 text-muted-foreground" />
-                  <span>Stored on Arkiv blockchain</span>
-                </div>
-              </div>
-
-              {isConnected ? (
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleRent}
-                  disabled={isProcessing || rentalMutation.isPending}
-                  data-testid="button-rent"
-                >
-                  {isProcessing || rentalMutation.isPending ? 'Processing...' : 'Rent Track'}
-                </Button>
-              ) : (
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Connect your wallet to rent this track
-                  </p>
-                  <WalletButton />
-                </div>
-              )}
-            </Card>
+            <RentalPayment catalogItemId={item.id} />
           </div>
         </div>
       </main>
