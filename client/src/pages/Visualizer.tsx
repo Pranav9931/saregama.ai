@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import Hls from 'hls.js';
 import VissonanceVisualizer from '@/components/VissonanceVisualizer';
 import ChunkIndicator from '@/components/ChunkIndicator';
+import BinaryStream from '@/components/BinaryStream';
 import { useWallet } from '@/contexts/WalletContext';
 import type { UserRental, CatalogItem } from '@shared/schema';
 
@@ -30,6 +31,8 @@ export default function Visualizer() {
   const [isMuted, setIsMuted] = useState(false);
   const [currentChunk, setCurrentChunk] = useState(-1);
   const [totalChunks, setTotalChunks] = useState(0);
+  const [chunkData, setChunkData] = useState<ArrayBuffer | null>(null);
+  const [isLoadingChunk, setIsLoadingChunk] = useState(false);
 
   const { data: rental } = useQuery<RentalWithItem>({
     queryKey: ['/api/rentals', walletAddress, rentalId],
@@ -80,12 +83,36 @@ export default function Visualizer() {
           });
       });
 
+      hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+        setIsLoadingChunk(true);
+      });
+
       hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
         const url = data.frag.url;
         const chunkMatch = url.match(/chunk\/(\d+)/);
         if (chunkMatch) {
           const chunkNum = parseInt(chunkMatch[1], 10);
           setCurrentChunk(chunkNum);
+          
+          // Capture the actual chunk data for binary visualization
+          if (data.payload) {
+            // data.payload is a Uint8Array, convert to ArrayBuffer
+            const uint8Array = new Uint8Array(data.payload);
+            const arrayBuffer = uint8Array.buffer.slice(
+              uint8Array.byteOffset,
+              uint8Array.byteOffset + uint8Array.byteLength
+            );
+            setChunkData(arrayBuffer);
+            setIsLoadingChunk(true);
+            
+            // Reset loading state after a delay
+            setTimeout(() => {
+              setIsLoadingChunk(false);
+            }, 500);
+          } else {
+            // Always clear loading state even if no payload
+            setIsLoadingChunk(false);
+          }
         }
       });
 
@@ -223,6 +250,8 @@ export default function Visualizer() {
   return (
     <div className="relative w-full h-screen overflow-hidden">
       <VissonanceVisualizer audioElement={audioElement} isPlaying={isPlaying} />
+      
+      <BinaryStream chunkData={chunkData} isLoading={isLoadingChunk} />
       
       <audio 
         ref={(node) => {
