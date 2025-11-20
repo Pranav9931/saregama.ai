@@ -212,11 +212,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Upload chunks to Arkiv with linked-list structure
           const arkivChunks: any[] = [];
+          
+          // Step 1: Upload binary chunk data
           for (let i = 0; i < result.chunks.length; i++) {
             const chunk = result.chunks[i];
             const chunkData = await fs.readFile(chunk.filePath);
             
-            // Upload to Arkiv
+            // Upload binary data to Arkiv
             const { entityKey: arkivEntityId, txHash: arkivTxHash } = await arkivClient.uploadChunk(chunkData, 0);
             
             arkivChunks.push({
@@ -224,9 +226,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               arkivEntityId,
               arkivTxHash,
               sizeBytes: chunk.sizeBytes,
+              metadataEntityId: null, // Will be set in step 2
             });
             
-            const progress = 40 + Math.floor((i / result.chunks.length) * 50);
+            const progress = 40 + Math.floor((i / result.chunks.length) * 30);
+            await storage.updateUploadJob(job.id, { progress });
+          }
+          
+          // Step 2: Create metadata entities with linked-list structure
+          // Process in REVERSE order so each metadata entity can point to the next one (already created)
+          let nextMetadataId: string | null = null;
+          for (let i = arkivChunks.length - 1; i >= 0; i--) {
+            const currentChunk = arkivChunks[i];
+            
+            // Upload metadata entity containing {entityId, dataEntityId, nextBlockId}
+            // nextBlockId points to the NEXT metadata entity ID (not binary chunk ID)
+            const { entityKey: metadataEntityId } = await arkivClient.uploadChunkMetadata({
+              entityId: currentChunk.arkivEntityId,
+              dataEntityId: currentChunk.arkivEntityId,
+              nextBlockId: nextMetadataId, // Points to next metadata entity (or null for last chunk)
+            }, 0);
+            
+            arkivChunks[i].metadataEntityId = metadataEntityId;
+            nextMetadataId = metadataEntityId; // This becomes the next chunk's nextBlockId
+            
+            const progress = 70 + Math.floor(((arkivChunks.length - i) / arkivChunks.length) * 20);
             await storage.updateUploadJob(job.id, { progress });
           }
           
@@ -247,13 +271,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Save chunk metadata with linked-list structure
           for (let i = 0; i < arkivChunks.length; i++) {
-            const nextChunkId = i < arkivChunks.length - 1 ? arkivChunks[i + 1].arkivEntityId : null;
+            // nextChunkId should point to the next chunk's METADATA entity ID (not binary arkivEntityId)
+            const nextChunkId = i < arkivChunks.length - 1 ? arkivChunks[i + 1].metadataEntityId : null;
             
             await storage.createCatalogChunk({
               catalogItemId: catalogItem.id,
               sequence: i,
               arkivEntityId: arkivChunks[i].arkivEntityId,
               arkivTxHash: arkivChunks[i].arkivTxHash,
+              metadataEntityId: arkivChunks[i].metadataEntityId,
               nextChunkId,
               sizeBytes: arkivChunks[i].sizeBytes,
               expiresAt: null, // Master chunks don't expire

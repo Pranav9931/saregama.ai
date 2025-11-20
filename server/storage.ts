@@ -165,6 +165,7 @@ export class MemStorage implements IStorage {
     }
 
     // Seed demo chunks for the first track to demonstrate blockchain storage
+    // Note: nextChunkId points to the next chunk's METADATA entity ID (linked-list structure)
     const firstItemId = demoItems[0].id;
     const demoChunks: CatalogChunk[] = [
       {
@@ -173,7 +174,8 @@ export class MemStorage implements IStorage {
         sequence: 0,
         arkivEntityId: "arkiv_chunk_demo_track1_00",
         arkivTxHash: "0xabc1234567890def1234567890abc1234567890def1234567890abc1234567890",
-        nextChunkId: null,
+        metadataEntityId: "arkiv_metadata_demo_track1_00",
+        nextChunkId: "arkiv_metadata_demo_track1_01", // Points to next chunk's metadata entity
         sizeBytes: 524288,
         expiresAt: null,
         createdAt: new Date("2024-01-15"),
@@ -184,7 +186,8 @@ export class MemStorage implements IStorage {
         sequence: 1,
         arkivEntityId: "arkiv_chunk_demo_track1_01",
         arkivTxHash: "0xdef9876543210abc9876543210def9876543210abc9876543210def987654321",
-        nextChunkId: null,
+        metadataEntityId: "arkiv_metadata_demo_track1_01",
+        nextChunkId: "arkiv_metadata_demo_track1_02", // Points to next chunk's metadata entity
         sizeBytes: 498432,
         expiresAt: null,
         createdAt: new Date("2024-01-15"),
@@ -195,7 +198,8 @@ export class MemStorage implements IStorage {
         sequence: 2,
         arkivEntityId: "arkiv_chunk_demo_track1_02",
         arkivTxHash: "0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890",
-        nextChunkId: null,
+        metadataEntityId: "arkiv_metadata_demo_track1_02",
+        nextChunkId: null, // Last chunk in the chain
         sizeBytes: 512000,
         expiresAt: null,
         createdAt: new Date("2024-01-15"),
@@ -324,6 +328,7 @@ export class MemStorage implements IStorage {
       sequence: insertChunk.sequence,
       arkivEntityId: insertChunk.arkivEntityId,
       arkivTxHash: insertChunk.arkivTxHash ?? null,
+      metadataEntityId: insertChunk.metadataEntityId ?? null,
       nextChunkId: insertChunk.nextChunkId ?? null,
       sizeBytes: insertChunk.sizeBytes,
       expiresAt: insertChunk.expiresAt ?? null,

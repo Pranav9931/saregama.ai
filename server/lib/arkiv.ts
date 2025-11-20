@@ -128,6 +128,44 @@ export class ArkivClient {
   }
 
   /**
+   * Upload chunk metadata with linked-list structure to Arkiv
+   * @param metadata Object containing {entityId, dataEntityId, nextBlockId}
+   * @param expiresInSeconds Expiration time in seconds
+   * @returns Object with entityKey and txHash
+   */
+  async uploadChunkMetadata(
+    metadata: { entityId: string; dataEntityId: string; nextBlockId: string | null },
+    expiresInSeconds: number = 0
+  ): Promise<{ entityKey: string; txHash: string }> {
+    if (!this.walletClient) {
+      // Mock mode
+      const mockId = `mock_metadata_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const mockTxHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+      console.log(`🔗 [MOCK] Uploading chunk metadata -> ${mockId}`);
+      return { entityKey: mockId, txHash: mockTxHash };
+    }
+
+    try {
+      const { entityKey, txHash } = await this.walletClient.createEntity({
+        payload: stringToPayload(JSON.stringify(metadata)),
+        contentType: 'application/json',
+        attributes: [
+          { key: 'type', value: 'chunk-metadata' },
+          { key: 'dataEntityId', value: metadata.dataEntityId },
+          { key: 'nextBlockId', value: metadata.nextBlockId || '' },
+        ],
+        expiresIn: expiresInSeconds || 31536000, // 1 year if 0
+      });
+
+      console.log(`✅ Chunk metadata uploaded to Arkiv: ${entityKey} - TX: ${txHash}`);
+      return { entityKey, txHash };
+    } catch (error) {
+      console.error("Failed to upload chunk metadata to Arkiv:", error);
+      throw new Error(`Arkiv metadata upload failed: ${error}`);
+    }
+  }
+
+  /**
    * Fetch chunk data from Arkiv blockchain
    * @param entityKey Entity ID to fetch
    * @returns Chunk data as Buffer
