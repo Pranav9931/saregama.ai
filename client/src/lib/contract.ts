@@ -71,54 +71,38 @@ export class FrontendContractClient {
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string, walletAddress: string) {
-    // Use Crossmint wallet if available - use the signer with ethers
+    // Use Crossmint wallet if available - convert to EVM wallet
     if (this.crossmintWallet) {
       try {
-        console.log("Using Crossmint wallet signer for transaction");
+        console.log("Using Crossmint EVM wallet for transaction");
         
-        // Get the signer from Crossmint wallet
-        const signer = this.crossmintWallet.signer;
-        if (!signer) {
-          throw new Error("Crossmint wallet signer not available");
-        }
-
-        // Create contract instance with Crossmint signer
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-        // Call purchaseRental - this will trigger Crossmint's approval UI
-        const tx = await contract.purchaseRental(catalogItemId, {
-          value: priceWei,
-        });
-
-        console.log("Transaction sent:", tx.hash);
-
-        // Wait for confirmation
-        const receipt = await tx.wait();
+        // Import EVMWallet from wallets-sdk
+        const { EVMWallet } = await import("@crossmint/wallets-sdk");
         
-        console.log("Transaction confirmed:", receipt.hash);
+        // Convert to EVM-specific wallet
+        const evmWallet = EVMWallet.from(this.crossmintWallet);
+        
+        console.log("EVM wallet created, preparing transaction");
 
-        // Find RentalPurchased event
-        const rentalPurchasedEvent = receipt.logs.find((log: any) => {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            return parsed?.name === "RentalPurchased";
-          } catch {
-            return false;
-          }
+        // Encode the contract call data
+        const iface = new ethers.Interface(CONTRACT_ABI);
+        const data = iface.encodeFunctionData("purchaseRental", [catalogItemId]) as `0x${string}`;
+
+        // Send transaction using EVM wallet
+        const result = await evmWallet.sendTransaction({
+          to: CONTRACT_ADDRESS as `0x${string}`,
+          value: BigInt(priceWei),
+          data,
         });
+        
+        console.log("Transaction sent successfully:", result);
 
-        if (rentalPurchasedEvent) {
-          const parsed = contract.interface.parseLog(rentalPurchasedEvent);
-          return {
-            rentalId: parsed?.args[0],
-            txHash: receipt.hash,
-            receipt,
-          };
-        }
+        // Extract transaction hash from result
+        const txHash = result.hash;
 
         return {
-          txHash: receipt.hash,
-          receipt,
+          txHash,
+          receipt: null,
         };
       } catch (error: any) {
         console.error("Crossmint transaction error:", error);
