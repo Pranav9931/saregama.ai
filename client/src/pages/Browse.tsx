@@ -41,7 +41,10 @@ export default function Browse() {
                 Browse
               </Link>
               <Link href="/library" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" data-testid="link-library">
-                Your Library
+                Library
+              </Link>
+              <Link href="/uploads" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" data-testid="link-uploads">
+                Uploads
               </Link>
             </nav>
           </div>

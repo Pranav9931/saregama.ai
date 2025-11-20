@@ -7,6 +7,7 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import Browse from "@/pages/Browse";
 import Library from "@/pages/Library";
 import TrackDetail from "@/pages/TrackDetail";
+import Uploads from "@/pages/Uploads";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -14,6 +15,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Browse} />
       <Route path="/library" component={Library} />
+      <Route path="/uploads" component={Uploads} />
       <Route path="/track/:id" component={TrackDetail} />
       <Route component={NotFound} />
     </Switch>

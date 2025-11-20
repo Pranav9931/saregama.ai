@@ -154,6 +154,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * Get catalog chunks with transaction details
+   */
+  app.get("/api/catalog/:id/chunks", async (req, res) => {
+    try {
+      const chunks = await storage.getCatalogChunksBySequence(req.params.id);
+      res.json(chunks);
+    } catch (error) {
+      console.error("Failed to fetch chunks:", error);
+      res.status(500).json({ error: "Failed to fetch chunks" });
+    }
+  });
+
   // ============ Upload Routes ============
   
   /**
@@ -285,6 +298,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(job);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch job status" });
+    }
+  });
+
+  /**
+   * Get all upload jobs for a wallet
+   */
+  app.get("/api/uploads/wallet/:walletAddress", async (req, res) => {
+    try {
+      const jobs = await storage.getUploadJobsByWallet(req.params.walletAddress);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Failed to fetch upload jobs:", error);
+      res.status(500).json({ error: "Failed to fetch upload jobs" });
     }
   });
 
