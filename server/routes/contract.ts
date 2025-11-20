@@ -109,7 +109,7 @@ export function registerContractRoutes(app: Express) {
    */
   app.post("/api/contract/rentals/verify", async (req, res) => {
     try {
-      const { txHash, walletAddress } = req.body;
+      const { txHash, walletAddress, catalogItemId: expectedCatalogItemId } = req.body;
       
       if (!txHash || !walletAddress) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -134,6 +134,11 @@ export function registerContractRoutes(app: Express) {
 
       if (!receipt.status) {
         return res.status(400).json({ error: "Transaction failed" });
+      }
+
+      // Verify transaction is to our contract
+      if (receipt.to?.toLowerCase() !== contractClient.getContractAddress().toLowerCase()) {
+        return res.status(400).json({ error: "Transaction is not for our contract" });
       }
 
       // Parse events to find RentalPurchased event
@@ -167,10 +172,26 @@ export function registerContractRoutes(app: Express) {
         return res.status(403).json({ error: "Wallet address does not match renter" });
       }
 
-      // Get catalog item from database
+      // Verify the catalog item matches the expected one
+      if (expectedCatalogItemId && catalogItemId !== expectedCatalogItemId) {
+        return res.status(400).json({ error: "Catalog item mismatch" });
+      }
+
+      // Get catalog item from database and verify it exists
       const catalogItem = await storage.getCatalogItem(catalogItemId);
       if (!catalogItem) {
         return res.status(404).json({ error: "Catalog item not found in database" });
+      }
+
+      // Get on-chain catalog item to verify price
+      const onChainItem = await contractClient.getCatalogItem(catalogItemId);
+      if (!onChainItem.catalogItemId) {
+        return res.status(404).json({ error: "Catalog item not found on contract" });
+      }
+
+      // Verify the paid amount matches or exceeds the on-chain price
+      if (paidAmount < BigInt(onChainItem.priceWei)) {
+        return res.status(400).json({ error: "Paid amount is less than required price" });
       }
 
       // Ensure user has a profile

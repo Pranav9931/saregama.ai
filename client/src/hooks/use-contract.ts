@@ -26,7 +26,14 @@ export function useContractPurchaseRental() {
       }
       setIsConnecting(false);
 
-      return await frontendContractClient.purchaseRental(catalogItemId, priceWei);
+      const result = await frontendContractClient.purchaseRental(catalogItemId, priceWei);
+      
+      const walletAddress = (window as any).ethereum?.selectedAddress;
+      if (!walletAddress) {
+        throw new Error("Failed to get wallet address");
+      }
+
+      return { ...result, walletAddress };
     },
     onSuccess: async (data, variables) => {
       toast({
@@ -34,21 +41,23 @@ export function useContractPurchaseRental() {
         description: `Transaction: ${data.txHash.slice(0, 10)}...`,
       });
 
-      if (data.txHash) {
+      if (data.txHash && data.walletAddress) {
         try {
-          const walletAddress = await frontendContractClient.connect().then(() => {
-            return (window as any).ethereum.selectedAddress;
-          });
-
           await apiRequest("POST", "/api/contract/rentals/verify", {
             txHash: data.txHash,
-            walletAddress,
+            walletAddress: data.walletAddress,
+            catalogItemId: variables.catalogItemId,
           });
 
           queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
           queryClient.invalidateQueries({ queryKey: ["/api/contract/rentals"] });
         } catch (error) {
           console.error("Failed to verify rental:", error);
+          toast({
+            title: "Verification Warning",
+            description: "Transaction succeeded but rental verification failed. Please contact support.",
+            variant: "destructive",
+          });
         }
       }
     },

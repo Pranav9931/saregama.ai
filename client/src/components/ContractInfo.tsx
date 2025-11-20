@@ -4,6 +4,13 @@ import { ExternalLink } from 'lucide-react';
 import { useContractInfo } from '@/hooks/use-contract';
 import { CONTRACT_ADDRESS } from '@shared/contract';
 
+interface ContractInfoData {
+  contractAddress: string;
+  owner: string;
+  platformFeePercentage: number;
+  platformFeeRecipient: string;
+}
+
 export default function ContractInfo() {
   const { data: contractInfo, isLoading } = useContractInfo();
 
@@ -19,6 +26,8 @@ export default function ContractInfo() {
   if (!contractInfo) {
     return null;
   }
+
+  const info = contractInfo as ContractInfoData;
 
   return (
     <Card className="p-6">
@@ -38,7 +47,7 @@ export default function ContractInfo() {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Platform Fee</span>
-          <span className="font-mono">{(contractInfo.platformFeePercentage / 100).toFixed(2)}%</span>
+          <span className="font-mono">{(info.platformFeePercentage / 100).toFixed(2)}%</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Network</span>
@@ -47,7 +56,7 @@ export default function ContractInfo() {
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Owner</span>
           <span className="font-mono text-xs">
-            {contractInfo.owner.slice(0, 6)}...{contractInfo.owner.slice(-4)}
+            {info.owner.slice(0, 6)}...{info.owner.slice(-4)}
           </span>
         </div>
       </div>
