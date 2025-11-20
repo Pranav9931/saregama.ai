@@ -149,7 +149,7 @@ export default function MusicPlayer({
         hlsRef.current = null;
       }
     };
-  }, [playlistUrl, walletAddress, track, mediaRef]);
+  }, [playlistUrl, walletAddress, track?.id, track?.type]);
 
   // Update current time and duration
   useEffect(() => {
