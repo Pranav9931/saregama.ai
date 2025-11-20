@@ -141,7 +141,7 @@ export function registerContractRoutes(app: Express) {
         body: JSON.stringify({
           walletType: "evm-smart-wallet",
           params: {
-            chain: "sepolia",
+            chain: "ethereum-sepolia",
             signer: `evm-keypair:${walletAddress}`,
             calls: [{
               address: CONTRACT_ADDRESS,
