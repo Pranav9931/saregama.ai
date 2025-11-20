@@ -2,12 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { arkivClient } from "./lib/arkiv";
+import { contractClient } from "./lib/contract";
 import { convertToHLS, cleanup } from "./lib/ffmpeg";
 import { promises as fs } from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { nanoid } from 'nanoid';
-import { verifyMessage } from 'ethers';
+import { verifyMessage, ethers } from 'ethers';
 import { registerContractRoutes } from "./routes/contract";
 
 // Configure multer for file uploads - use diskStorage to prevent auto-deletion
@@ -283,6 +284,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             category: category || "new-releases",
             createdBy: walletAddress,
           });
+          
+          // Auto-sync catalog item to smart contract
+          try {
+            const ownerPrivateKey = process.env.ARKIV_PRIVATE_KEY;
+            if (ownerPrivateKey) {
+              const priceWei = ethers.parseEther(catalogItem.priceEth).toString();
+              const receipt = await contractClient.addCatalogItem(
+                catalogItem.id,
+                catalogItem.createdBy,
+                priceWei,
+                catalogItem.rentalDurationDays,
+                ownerPrivateKey
+              );
+              console.log(`✅ Catalog item synced to contract: ${catalogItem.id} (TX: ${receipt.hash})`);
+            } else {
+              console.warn("⚠️ ARKIV_PRIVATE_KEY not set - catalog item not synced to contract");
+            }
+          } catch (syncError) {
+            console.error("Failed to auto-sync catalog item to contract:", syncError);
+            // Don't fail the upload if contract sync fails - can be synced manually later
+          }
           
           // Save chunk metadata with linked-list structure
           for (let i = 0; i < arkivChunks.length; i++) {

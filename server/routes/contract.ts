@@ -6,6 +6,136 @@ import { ethers } from "ethers";
 export function registerContractRoutes(app: Express) {
   
   /**
+   * Admin: Sync catalog item to smart contract
+   * Uses server-side private key for automatic syncing
+   */
+  app.post("/api/admin/contract/sync-catalog-item/:catalogItemId", async (req, res) => {
+    try {
+      const { catalogItemId } = req.params;
+      
+      const ownerPrivateKey = process.env.ARKIV_PRIVATE_KEY;
+      if (!ownerPrivateKey) {
+        return res.status(500).json({ error: "Contract owner private key not configured" });
+      }
+
+      // Get catalog item from database
+      const catalogItem = await storage.getCatalogItem(catalogItemId);
+      if (!catalogItem) {
+        return res.status(404).json({ error: "Catalog item not found in database" });
+      }
+
+      // Check if already on contract
+      const onChainItem = await contractClient.getCatalogItem(catalogItemId);
+      if (onChainItem.catalogItemId) {
+        return res.json({
+          success: true,
+          message: "Catalog item already exists on contract",
+          txHash: null,
+        });
+      }
+
+      // Add to contract
+      const priceWei = ethers.parseEther(catalogItem.priceEth).toString();
+      const receipt = await contractClient.addCatalogItem(
+        catalogItemId,
+        catalogItem.createdBy,
+        priceWei,
+        catalogItem.rentalDurationDays,
+        ownerPrivateKey
+      );
+
+      res.json({
+        success: true,
+        message: "Catalog item added to contract",
+        txHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+      });
+    } catch (error) {
+      console.error("Failed to sync catalog item to contract:", error);
+      res.status(500).json({ 
+        error: "Failed to sync catalog item to contract",
+        details: String(error)
+      });
+    }
+  });
+
+  /**
+   * Admin: Sync all catalog items to smart contract
+   */
+  app.post("/api/admin/contract/sync-all-catalog-items", async (req, res) => {
+    try {
+      const ownerPrivateKey = process.env.ARKIV_PRIVATE_KEY;
+      if (!ownerPrivateKey) {
+        return res.status(500).json({ error: "Contract owner private key not configured" });
+      }
+
+      // Get all catalog items
+      const catalogItems = await storage.getCatalogItems();
+      
+      const results = [];
+      for (const item of catalogItems) {
+        try {
+          // Check if already on contract
+          const onChainItem = await contractClient.getCatalogItem(item.id);
+          if (onChainItem.catalogItemId) {
+            results.push({
+              catalogItemId: item.id,
+              status: "already_synced",
+              title: item.title,
+            });
+            continue;
+          }
+
+          // Add to contract
+          const priceWei = ethers.parseEther(item.priceEth).toString();
+          const receipt = await contractClient.addCatalogItem(
+            item.id,
+            item.createdBy,
+            priceWei,
+            item.rentalDurationDays,
+            ownerPrivateKey
+          );
+
+          results.push({
+            catalogItemId: item.id,
+            status: "synced",
+            title: item.title,
+            txHash: receipt.hash,
+          });
+        } catch (error) {
+          results.push({
+            catalogItemId: item.id,
+            status: "failed",
+            title: item.title,
+            error: String(error),
+          });
+        }
+      }
+
+      const synced = results.filter(r => r.status === "synced").length;
+      const alreadySynced = results.filter(r => r.status === "already_synced").length;
+      const failed = results.filter(r => r.status === "failed").length;
+
+      res.json({
+        success: true,
+        summary: {
+          total: catalogItems.length,
+          synced,
+          alreadySynced,
+          failed,
+        },
+        results,
+      });
+    } catch (error) {
+      console.error("Failed to sync all catalog items:", error);
+      res.status(500).json({ 
+        error: "Failed to sync all catalog items",
+        details: String(error)
+      });
+    }
+  });
+
+  /**
    * Add catalog item to smart contract (owner only)
    * This should be called after a catalog item is created in the database
    */

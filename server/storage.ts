@@ -168,6 +168,7 @@ export class MemStorage implements IStorage {
       masterPlaylistId: insertItem.masterPlaylistId ?? null,
       masterPlaylistTxHash: insertItem.masterPlaylistTxHash ?? null,
       priceEth: insertItem.priceEth ?? "0.0001",
+      rentalDurationDays: insertItem.rentalDurationDays ?? 30,
       durationSeconds: insertItem.durationSeconds,
       totalChunks: insertItem.totalChunks ?? 0,
       category: insertItem.category ?? null,
