@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { BrowserProvider } from 'ethers';
+import { createContext, useContext, ReactNode } from 'react';
+import { useAuth, useWallet as useCrossmintWallet } from '@crossmint/client-sdk-react-ui';
 import type { Profile } from '@shared/schema';
+import { useState, useEffect } from 'react';
 
 interface WalletContextType {
   walletAddress: string | null;
@@ -14,93 +15,59 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const { login, logout, user, jwt } = useAuth();
+  const { wallet, status: walletStatus } = useCrossmintWallet();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  const walletAddress = wallet?.address || null;
+  const isConnected = !!walletAddress;
 
   const connectWallet = async () => {
     setIsConnecting(true);
     try {
-      // Check if MetaMask is installed
-      if (!window.ethereum) {
-        alert('Please install MetaMask to use this application');
-        setIsConnecting(false);
-        return;
-      }
-
-      // Request accounts
-      const provider = new BrowserProvider(window.ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
-      const address = accounts[0];
-
-      // Get nonce for signature
-      const nonceResponse = await fetch('/api/auth/nonce', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: address }),
-      });
-      const { nonce } = await nonceResponse.json();
-
-      // Request signature
-      const signer = await provider.getSigner();
-      const signature = await signer.signMessage(nonce);
-
-      // Verify signature and get/create profile
-      const verifyResponse = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: address,
-          signature,
-          message: nonce,
-        }),
-      });
-      const { profile: userProfile } = await verifyResponse.json();
-
-      setWalletAddress(address);
-      setProfile(userProfile);
-      localStorage.setItem('connectedWallet', address);
+      await login();
     } catch (error) {
       console.error('Failed to connect wallet:', error);
-      alert('Failed to connect wallet. Please try again.');
     } finally {
       setIsConnecting(false);
     }
   };
 
   const disconnectWallet = () => {
-    setWalletAddress(null);
+    logout();
     setProfile(null);
-    localStorage.removeItem('connectedWallet');
   };
 
-  // Auto-reconnect on page load
   useEffect(() => {
-    const savedAddress = localStorage.getItem('connectedWallet');
-    if (savedAddress && window.ethereum) {
-      window.ethereum
-        .request({ method: 'eth_accounts' })
-        .then((accounts: string[]) => {
-          if (accounts.includes(savedAddress)) {
-            setWalletAddress(savedAddress);
-            // Fetch profile
-            fetch(`/api/profile/${savedAddress}`)
-              .then((res) => res.json())
-              .then((userProfile) => setProfile(userProfile))
-              .catch(() => setWalletAddress(null));
+    if (walletAddress && jwt) {
+      fetch(`/api/profile/${walletAddress}`)
+        .then((res) => {
+          if (res.ok) {
+            return res.json();
+          }
+          return null;
+        })
+        .then((userProfile) => {
+          if (userProfile) {
+            setProfile(userProfile);
           }
         })
-        .catch(console.error);
+        .catch((err) => {
+          console.error('Failed to fetch profile:', err);
+        });
+    } else {
+      setProfile(null);
     }
-  }, []);
+  }, [walletAddress, jwt]);
 
   return (
     <WalletContext.Provider
       value={{
         walletAddress,
         profile,
-        isConnected: !!walletAddress,
-        isConnecting,
+        isConnected,
+        isConnecting: isConnecting || walletStatus === 'in-progress',
         connectWallet,
         disconnectWallet,
       }}

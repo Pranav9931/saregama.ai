@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CrossmintProvider, CrossmintAuthProvider } from "@crossmint/client-sdk-react-ui";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { ChunkFetchProvider } from "@/contexts/ChunkFetchContext";
 import Browse from "@/pages/Browse";
@@ -26,16 +27,28 @@ function Router() {
 }
 
 function App() {
+  const crossmintApiKey = import.meta.env.VITE_CROSSMINT_CLIENT_API_KEY;
+
+  if (!crossmintApiKey) {
+    console.error('VITE_CROSSMINT_CLIENT_API_KEY environment variable is not set');
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
-      <WalletProvider>
-        <ChunkFetchProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </ChunkFetchProvider>
-      </WalletProvider>
+      <CrossmintProvider apiKey={crossmintApiKey}>
+        <CrossmintAuthProvider
+          loginMethods={["email", "google", "twitter"]}
+        >
+          <WalletProvider>
+            <ChunkFetchProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Router />
+              </TooltipProvider>
+            </ChunkFetchProvider>
+          </WalletProvider>
+        </CrossmintAuthProvider>
+      </CrossmintProvider>
     </QueryClientProvider>
   );
 }
