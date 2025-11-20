@@ -70,49 +70,39 @@ export class FrontendContractClient {
     }
   }
 
-  async purchaseRental(catalogItemId: string, priceWei: string) {
-    // Use Crossmint wallet signer if available
-    if (this.crossmintWallet && this.crossmintWallet.signer) {
+  async purchaseRental(catalogItemId: string, priceWei: string, walletAddress: string) {
+    // Use Crossmint wallet if available - create transaction via backend API
+    if (this.crossmintWallet) {
       try {
-        console.log("Using Crossmint wallet signer for transaction");
+        console.log("Creating Crossmint transaction via backend API");
         
-        // Create contract instance with Crossmint signer
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, this.crossmintWallet.signer);
-        
-        // Execute the transaction
-        const tx = await contract.purchaseRental(catalogItemId, {
-          value: priceWei,
+        // Call backend to create transaction via Crossmint API
+        const response = await fetch("/api/contract/rentals/create-transaction", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            walletAddress,
+            catalogItemId,
+            priceWei,
+          }),
         });
 
-        console.log("Transaction submitted:", tx.hash);
-        
-        // Wait for transaction confirmation
-        const receipt = await tx.wait();
-        
-        console.log("Transaction confirmed:", receipt.hash);
-        
-        // Find the RentalPurchased event
-        const rentalPurchasedEvent = receipt.logs.find((log: any) => {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            return parsed?.name === "RentalPurchased";
-          } catch {
-            return false;
-          }
-        });
-
-        if (rentalPurchasedEvent) {
-          const parsed = contract.interface.parseLog(rentalPurchasedEvent);
-          return {
-            rentalId: parsed?.args[0],
-            txHash: receipt.hash,
-            receipt,
-          };
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.details?.message || error.error || "Failed to create transaction");
         }
 
+        const { transactionId, status } = await response.json();
+        
+        console.log("Crossmint transaction created:", transactionId, "status:", status);
+
+        // Transaction will be automatically processed by Crossmint
+        // For now, return the transaction ID
         return {
-          txHash: receipt.hash,
-          receipt,
+          txHash: transactionId,
+          receipt: null,
         };
       } catch (error: any) {
         console.error("Crossmint transaction error:", error);

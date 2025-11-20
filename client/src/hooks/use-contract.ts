@@ -35,13 +35,13 @@ export function useContractPurchaseRental() {
       }
       setIsConnecting(false);
 
-      const result = await frontendContractClient.purchaseRental(catalogItemId, priceWei);
-      
       // Use Crossmint wallet address if available, otherwise try MetaMask
       const userWalletAddress = walletAddress || (window as any).ethereum?.selectedAddress;
       if (!userWalletAddress) {
         throw new Error("Failed to get wallet address");
       }
+
+      const result = await frontendContractClient.purchaseRental(catalogItemId, priceWei, userWalletAddress);
 
       return { ...result, walletAddress: userWalletAddress };
     },

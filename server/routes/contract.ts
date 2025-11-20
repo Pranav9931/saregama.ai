@@ -104,6 +104,80 @@ export function registerContractRoutes(app: Express) {
   });
 
   /**
+   * Create rental transaction via Crossmint API
+   * This creates a transaction that the Crossmint wallet can sign
+   */
+  app.post("/api/contract/rentals/create-transaction", async (req, res) => {
+    try {
+      const { walletAddress, catalogItemId, priceWei } = req.body;
+      
+      if (!walletAddress || !catalogItemId || !priceWei) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const CROSSMINT_API_KEY = process.env.VITE_CROSSMINT_SERVER_API_KEY;
+      if (!CROSSMINT_API_KEY) {
+        return res.status(500).json({ error: "Crossmint API key not configured" });
+      }
+
+      // Get catalog item to verify it exists
+      const catalogItem = await storage.getCatalogItem(catalogItemId);
+      if (!catalogItem) {
+        return res.status(404).json({ error: "Catalog item not found" });
+      }
+
+      // Import contract ABI and address
+      const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import("@shared/contract");
+
+      // Create transaction via Crossmint API
+      const walletLocator = `evm-smart-wallet:${walletAddress}:sepolia`;
+      const crossmintApiUrl = `https://staging.crossmint.com/api/2024-09-26/wallets/${walletLocator}/transactions`;
+
+      const txResponse = await fetch(crossmintApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-KEY": CROSSMINT_API_KEY,
+        },
+        body: JSON.stringify({
+          params: {
+            calls: [{
+              address: CONTRACT_ADDRESS,
+              abi: CONTRACT_ABI,
+              functionName: "purchaseRental",
+              args: [catalogItemId],
+              value: priceWei,
+            }],
+            chain: "sepolia",
+          }
+        }),
+      });
+
+      const txData = await txResponse.json();
+
+      if (!txResponse.ok) {
+        console.error("Crossmint API error:", txData);
+        return res.status(txResponse.status).json({ 
+          error: "Failed to create transaction",
+          details: txData
+        });
+      }
+
+      res.json({
+        transactionId: txData.id,
+        status: txData.status,
+        approvals: txData.approvals,
+      });
+    } catch (error) {
+      console.error("Failed to create rental transaction:", error);
+      res.status(500).json({ 
+        error: "Failed to create rental transaction",
+        details: String(error)
+      });
+    }
+  });
+
+  /**
    * Verify rental transaction and create rental in database
    * This verifies an on-chain rental purchase and creates the rental record
    */
