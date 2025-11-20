@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Upload, Grid3x3, List } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import WalletButton from '@/components/WalletButton';
 import TrackCard from '@/components/TrackCard';
 import MusicPlayer from '@/components/MusicPlayer';
@@ -36,6 +36,7 @@ export default function Library() {
   const [isPlaying, setIsPlaying] = useState(false);
   const { walletAddress, isConnected } = useWallet();
   const { chunkFetches } = useChunkFetch();
+  const [, setLocation] = useLocation();
 
   const { data: rentals, isLoading } = useQuery<RentalWithItem[]>({
     queryKey: ['/api/rentals', walletAddress],
@@ -56,21 +57,7 @@ export default function Library() {
   };
 
   const handlePlayTrack = (trackId: string) => {
-    const rental = rentals?.find((r) => r.id === trackId);
-    if (rental && rental.catalogItem && rental.isActive) {
-      setCurrentTrack({
-        id: rental.id,
-        title: rental.catalogItem.title,
-        artist: rental.catalogItem.artist,
-        albumArt: rental.catalogItem.coverUrl || 'https://via.placeholder.com/300',
-        duration: formatDuration(rental.catalogItem.durationSeconds),
-        durationSeconds: rental.catalogItem.durationSeconds,
-        daysRemaining: getDaysRemaining(rental.rentalExpiresAt),
-        isExpired: !rental.isActive,
-        type: rental.catalogItem.type as 'audio' | 'video',
-      });
-      setIsPlaying(true);
-    }
+    setLocation(`/visualizer/${trackId}`);
   };
 
   const activeTracks = rentals?.filter((r) => r.isActive) || [];

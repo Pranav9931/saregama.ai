@@ -9,6 +9,7 @@ import Browse from "@/pages/Browse";
 import Library from "@/pages/Library";
 import TrackDetail from "@/pages/TrackDetail";
 import Uploads from "@/pages/Uploads";
+import Visualizer from "@/pages/Visualizer";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/library" component={Library} />
       <Route path="/uploads" component={Uploads} />
       <Route path="/track/:id" component={TrackDetail} />
+      <Route path="/visualizer/:rentalId" component={Visualizer} />
       <Route component={NotFound} />
     </Switch>
   );
