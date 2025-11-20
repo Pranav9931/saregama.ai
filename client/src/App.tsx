@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletProvider } from "@/contexts/WalletContext";
 import Browse from "@/pages/Browse";
 import Library from "@/pages/Library";
+import TrackDetail from "@/pages/TrackDetail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -13,6 +14,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Browse} />
       <Route path="/library" component={Library} />
+      <Route path="/track/:id" component={TrackDetail} />
       <Route component={NotFound} />
     </Switch>
   );
