@@ -129,9 +129,8 @@ export function registerContractRoutes(app: Express) {
       // Import contract ABI and address
       const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import("@shared/contract");
 
-      // Create transaction via Crossmint API
-      const walletLocator = `evm-smart-wallet:${walletAddress}:sepolia`;
-      const crossmintApiUrl = `https://staging.crossmint.com/api/2024-09-26/wallets/${walletLocator}/transactions`;
+      // Create transaction via Crossmint API (v1-alpha2)
+      const crossmintApiUrl = `https://staging.crossmint.com/api/v1-alpha2/wallets/${walletAddress}/transactions`;
 
       const txResponse = await fetch(crossmintApiUrl, {
         method: "POST",
@@ -140,7 +139,10 @@ export function registerContractRoutes(app: Express) {
           "X-API-KEY": CROSSMINT_API_KEY,
         },
         body: JSON.stringify({
+          walletType: "evm-smart-wallet",
           params: {
+            chain: "sepolia",
+            signer: `evm-keypair:${walletAddress}`,
             calls: [{
               address: CONTRACT_ADDRESS,
               abi: CONTRACT_ABI,
@@ -148,7 +150,6 @@ export function registerContractRoutes(app: Express) {
               args: [catalogItemId],
               value: priceWei,
             }],
-            chain: "sepolia",
           }
         }),
       });
