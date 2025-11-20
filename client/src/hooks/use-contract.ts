@@ -1,12 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { frontendContractClient } from "@/lib/contract";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useWallet } from "@/contexts/WalletContext";
 
 export function useContractPurchaseRental() {
   const { toast } = useToast();
+  const { crossmintWallet, walletAddress } = useWallet();
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Set the Crossmint wallet on the contract client when available
+  useEffect(() => {
+    if (crossmintWallet) {
+      frontendContractClient.setCrossmintWallet(crossmintWallet);
+    }
+  }, [crossmintWallet]);
 
   return useMutation({
     mutationFn: async ({ catalogItemId, priceWei }: { catalogItemId: string; priceWei: string }) => {
@@ -28,12 +37,13 @@ export function useContractPurchaseRental() {
 
       const result = await frontendContractClient.purchaseRental(catalogItemId, priceWei);
       
-      const walletAddress = (window as any).ethereum?.selectedAddress;
-      if (!walletAddress) {
+      // Use Crossmint wallet address if available, otherwise try MetaMask
+      const userWalletAddress = walletAddress || (window as any).ethereum?.selectedAddress;
+      if (!userWalletAddress) {
         throw new Error("Failed to get wallet address");
       }
 
-      return { ...result, walletAddress };
+      return { ...result, walletAddress: userWalletAddress };
     },
     onSuccess: async (data, variables) => {
       toast({
@@ -64,14 +74,7 @@ export function useContractPurchaseRental() {
     onError: (error: any) => {
       console.error("Purchase rental error:", error);
       
-      if (error.message?.includes("MetaMask is required")) {
-        toast({
-          title: "MetaMask Required",
-          description: "Please install MetaMask browser extension to make on-chain rental purchases. Crossmint wallets are for login only.",
-          variant: "destructive",
-          duration: 8000,
-        });
-      } else if (error.message?.includes("user rejected")) {
+      if (error.message?.includes("user rejected") || error.message?.includes("User rejected")) {
         toast({
           title: "Transaction Cancelled",
           description: "You cancelled the transaction",
@@ -80,13 +83,14 @@ export function useContractPurchaseRental() {
       } else if (error.message?.includes("insufficient funds")) {
         toast({
           title: "Insufficient Funds",
-          description: "You don't have enough Sepolia ETH for this transaction",
+          description: "You don't have enough Sepolia ETH for this transaction. Your Crossmint wallet needs to be funded.",
           variant: "destructive",
+          duration: 8000,
         });
       } else if (error.message?.includes("Sepolia")) {
         toast({
           title: "Wrong Network",
-          description: "Please switch MetaMask to Sepolia network or allow the network switch request",
+          description: "Please ensure you're on Sepolia network",
           variant: "destructive",
           duration: 8000,
         });

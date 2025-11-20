@@ -10,6 +10,7 @@ interface WalletContextType {
   isConnecting: boolean;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
+  crossmintWallet: any | null;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -74,6 +75,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isConnecting: isConnecting || walletStatus === 'in-progress',
         connectWallet,
         disconnectWallet,
+        crossmintWallet: wallet,
       }}
     >
       {children}

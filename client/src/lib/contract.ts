@@ -4,61 +4,95 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI, SEPOLIA_CHAIN_ID } from "@shared/contra
 export class FrontendContractClient {
   private provider: BrowserProvider | null = null;
   private contract: Contract | null = null;
+  private crossmintWallet: any | null = null;
+
+  setCrossmintWallet(wallet: any) {
+    this.crossmintWallet = wallet;
+  }
 
   async connect() {
-    if (typeof window.ethereum === "undefined") {
-      throw new Error("MetaMask is required for on-chain transactions. Please install MetaMask browser extension to rent tracks.");
+    // If Crossmint wallet is available, use it (preferred)
+    if (this.crossmintWallet) {
+      console.log("Using Crossmint wallet for transactions");
+      return;
     }
 
-    try {
-      this.provider = new ethers.BrowserProvider(window.ethereum as any);
-      
-      const network = await this.provider.getNetwork();
-      if (Number(network.chainId) !== SEPOLIA_CHAIN_ID) {
-        try {
-          await (window.ethereum as any).request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${SEPOLIA_CHAIN_ID.toString(16)}` }],
-          });
-          
-          this.provider = new ethers.BrowserProvider(window.ethereum as any);
-        } catch (switchError: any) {
-          if (switchError.code === 4902) {
-            try {
-              await (window.ethereum as any).request({
-                method: 'wallet_addEthereumChain',
-                params: [{
-                  chainId: `0x${SEPOLIA_CHAIN_ID.toString(16)}`,
-                  chainName: 'Sepolia Testnet',
-                  nativeCurrency: {
-                    name: 'Sepolia ETH',
-                    symbol: 'ETH',
-                    decimals: 18
-                  },
-                  rpcUrls: ['https://sepolia.infura.io/v3/'],
-                  blockExplorerUrls: ['https://sepolia.etherscan.io/']
-                }],
-              });
-              
-              this.provider = new ethers.BrowserProvider(window.ethereum as any);
-            } catch (addError) {
-              throw new Error("Failed to add Sepolia network to MetaMask");
+    // Fallback to MetaMask if available
+    if (typeof window.ethereum !== "undefined") {
+      try {
+        this.provider = new ethers.BrowserProvider(window.ethereum as any);
+        
+        const network = await this.provider.getNetwork();
+        if (Number(network.chainId) !== SEPOLIA_CHAIN_ID) {
+          try {
+            await (window.ethereum as any).request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: `0x${SEPOLIA_CHAIN_ID.toString(16)}` }],
+            });
+            
+            this.provider = new ethers.BrowserProvider(window.ethereum as any);
+          } catch (switchError: any) {
+            if (switchError.code === 4902) {
+              try {
+                await (window.ethereum as any).request({
+                  method: 'wallet_addEthereumChain',
+                  params: [{
+                    chainId: `0x${SEPOLIA_CHAIN_ID.toString(16)}`,
+                    chainName: 'Sepolia Testnet',
+                    nativeCurrency: {
+                      name: 'Sepolia ETH',
+                      symbol: 'ETH',
+                      decimals: 18
+                    },
+                    rpcUrls: ['https://sepolia.infura.io/v3/'],
+                    blockExplorerUrls: ['https://sepolia.etherscan.io/']
+                  }],
+                });
+                
+                this.provider = new ethers.BrowserProvider(window.ethereum as any);
+              } catch (addError) {
+                throw new Error("Failed to add Sepolia network to MetaMask");
+              }
+            } else {
+              throw new Error("Please switch to Sepolia network in MetaMask");
             }
-          } else {
-            throw new Error("Please switch to Sepolia network in MetaMask");
           }
         }
-      }
 
-      const signer = await this.provider.getSigner();
-      this.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    } catch (error: any) {
-      console.error("Contract connection error:", error);
-      throw error;
+        const signer = await this.provider.getSigner();
+        this.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      } catch (error: any) {
+        console.error("MetaMask connection error:", error);
+        throw error;
+      }
+    } else {
+      throw new Error("No wallet available. Please log in with Crossmint or install MetaMask.");
     }
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string) {
+    // Use Crossmint wallet if available
+    if (this.crossmintWallet) {
+      try {
+        const txHash = await this.crossmintWallet.executeContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "purchaseRental",
+          args: [catalogItemId],
+          value: BigInt(priceWei),
+        });
+
+        return {
+          txHash,
+          receipt: null,
+        };
+      } catch (error: any) {
+        console.error("Crossmint transaction error:", error);
+        throw new Error(`Transaction failed: ${error.message || 'Unknown error'}`);
+      }
+    }
+
+    // Fallback to MetaMask
     if (!this.contract) {
       await this.connect();
     }
