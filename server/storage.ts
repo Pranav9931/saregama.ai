@@ -392,9 +392,12 @@ export class DbStorage implements IStorage {
   }
 
   async updateProfile(walletAddress: string, updates: Partial<InsertProfile>): Promise<Profile> {
+    const safeUpdates = { ...updates };
+    delete safeUpdates.walletAddress;
+    
     const [profile] = await db
       .update(profiles)
-      .set(updates)
+      .set(safeUpdates)
       .where(eq(profiles.walletAddress, walletAddress.toLowerCase()))
       .returning();
     if (!profile) {
@@ -448,15 +451,21 @@ export class DbStorage implements IStorage {
       .values({
         ...insertItem,
         coverUrl,
+        createdBy: insertItem.createdBy.toLowerCase(),
       })
       .returning();
     return item;
   }
 
   async updateCatalogItem(id: string, updates: Partial<InsertCatalogItem>): Promise<CatalogItem> {
+    const normalizedUpdates = {
+      ...updates,
+      ...(updates.createdBy ? { createdBy: updates.createdBy.toLowerCase() } : {}),
+    };
+    
     const [item] = await db
       .update(catalogItems)
-      .set(updates)
+      .set(normalizedUpdates)
       .where(eq(catalogItems.id, id))
       .returning();
     if (!item) {
@@ -541,7 +550,10 @@ export class DbStorage implements IStorage {
   async createUserRental(insertRental: InsertUserRental): Promise<UserRental> {
     const [rental] = await db
       .insert(userRentals)
-      .values(insertRental)
+      .values({
+        ...insertRental,
+        walletAddress: insertRental.walletAddress.toLowerCase(),
+      })
       .returning();
     return rental;
   }
@@ -582,15 +594,23 @@ export class DbStorage implements IStorage {
   async createUploadJob(insertJob: InsertUploadJob): Promise<UploadJob> {
     const [job] = await db
       .insert(uploadJobs)
-      .values(insertJob)
+      .values({
+        ...insertJob,
+        walletAddress: insertJob.walletAddress.toLowerCase(),
+      })
       .returning();
     return job;
   }
 
   async updateUploadJob(id: string, updates: Partial<UploadJob>): Promise<UploadJob> {
+    const normalizedUpdates = {
+      ...updates,
+      ...(updates.walletAddress ? { walletAddress: updates.walletAddress.toLowerCase() } : {}),
+    };
+    
     const [job] = await db
       .update(uploadJobs)
-      .set(updates)
+      .set(normalizedUpdates)
       .where(eq(uploadJobs.id, id))
       .returning();
     if (!job) {
