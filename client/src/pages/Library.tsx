@@ -9,7 +9,9 @@ import TrackCard from '@/components/TrackCard';
 import MusicPlayer from '@/components/MusicPlayer';
 import UploadModal from '@/components/UploadModal';
 import EmptyState from '@/components/EmptyState';
+import BlockchainChunkVisualizer from '@/components/BlockchainChunkVisualizer';
 import { useWallet } from '@/contexts/WalletContext';
+import { useChunkFetch } from '@/contexts/ChunkFetchContext';
 import type { UserRental, CatalogItem } from '@shared/schema';
 
 interface Track {
@@ -34,6 +36,7 @@ export default function Library() {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const { walletAddress, isConnected } = useWallet();
+  const { chunkFetches } = useChunkFetch();
 
   const { data: rentals, isLoading } = useQuery<RentalWithItem[]>({
     queryKey: ['/api/rentals', walletAddress],
@@ -192,6 +195,13 @@ export default function Library() {
           </div>
         )}
       </main>
+
+      {/* Blockchain Chunk Visualizer - shows when chunks are being fetched */}
+      {chunkFetches.length > 0 && (
+        <div className="fixed top-20 right-4 w-96 z-40">
+          <BlockchainChunkVisualizer chunkFetches={chunkFetches} />
+        </div>
+      )}
 
       {currentTrack && (
         <MusicPlayer

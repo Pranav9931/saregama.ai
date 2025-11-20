@@ -10,6 +10,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import { useChunkFetch } from '@/contexts/ChunkFetchContext';
 
 interface MusicPlayerProps {
   track?: {
@@ -45,6 +46,7 @@ export default function MusicPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const { addChunkFetch, clearChunkFetches } = useChunkFetch();
 
   // Get the appropriate media element ref based on track type
   const mediaRef = track?.type === 'video' ? videoRef : audioRef;
@@ -82,6 +84,28 @@ export default function MusicPlayer({
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         console.log('HLS manifest parsed successfully');
         setIsLoading(false);
+        clearChunkFetches();
+      });
+
+      // Track chunk fetches from blockchain
+      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        const loader = data.frag.loader as any;
+        const response = loader?.context?.xhr;
+        if (response) {
+          const sequence = response.getResponseHeader('X-Chunk-Sequence');
+          const metadataEntityId = response.getResponseHeader('X-Chunk-Metadata-Entity');
+          const arkivEntityId = response.getResponseHeader('X-Chunk-Data-Entity');
+          const txHash = response.getResponseHeader('X-Chunk-TxHash');
+
+          if (sequence && metadataEntityId && arkivEntityId && txHash) {
+            addChunkFetch({
+              sequence: parseInt(sequence),
+              metadataEntityId,
+              arkivEntityId,
+              txHash,
+            });
+          }
+        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {

@@ -91,16 +91,15 @@ export async function convertToHLS(
       })
       // HLS output options optimized for small chunks
       .outputOptions([
-        '-codec: copy', // Copy without re-encoding when possible
         '-start_number 0',
-        '-hls_time 2', // 2 second segments (adjust if chunks still too large)
+        '-hls_time 6', // 6 second segments for reasonable chunk sizes
         '-hls_list_size 0',
         '-hls_segment_type mpegts',
         '-f hls',
-        // Additional compression if needed
+        // Audio encoding for smaller chunks
+        '-c:a aac', // AAC audio codec
         '-b:a 64k', // Lower audio bitrate for smaller chunks
-        '-maxrate 128k', // Max bitrate
-        '-bufsize 256k', // Buffer size
+        '-c:v copy', // Copy video if present (no re-encoding)
       ])
       .output(playlistPath)
       .run();

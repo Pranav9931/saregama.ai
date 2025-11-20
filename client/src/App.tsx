@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { ChunkFetchProvider } from "@/contexts/ChunkFetchContext";
 import Browse from "@/pages/Browse";
 import Library from "@/pages/Library";
 import TrackDetail from "@/pages/TrackDetail";
@@ -26,10 +27,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <ChunkFetchProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </ChunkFetchProvider>
       </WalletProvider>
     </QueryClientProvider>
   );

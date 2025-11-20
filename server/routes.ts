@@ -567,13 +567,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Traverse the linked-list using nextChunkId to reach the requested sequence
       let currentSequence = 0;
-      while (currentSequence < sequence) {
+      while (currentSequence < sequence && currentChunk) {
         if (!currentChunk.nextChunkId) {
           return res.status(404).json({ error: `Chunk ${sequence} not found in linked-list` });
         }
 
         // Find the next chunk in the database using nextChunkId (which points to metadataEntityId)
-        const nextChunk = allChunks.find(c => c.metadataEntityId === currentChunk.nextChunkId);
+        const nextChunk = allChunks.find(c => c.metadataEntityId === currentChunk?.nextChunkId);
         if (!nextChunk) {
           return res.status(404).json({ error: `Broken linked-list at sequence ${currentSequence}` });
         }
@@ -582,6 +582,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         currentChunk = nextChunk;
         currentSequence++;
+      }
+
+      if (!currentChunk) {
+        return res.status(404).json({ error: "Chunk not found after traversal" });
       }
 
       console.log(`[Linked-list traversal] Reached target sequence ${sequence}`);
@@ -603,7 +607,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch binary chunk data from Arkiv using the arkivEntityId
       const chunkData = await arkivClient.fetchChunk(currentChunk.arkivEntityId);
       
+      // Add chunk metadata to response headers for frontend visualization
       res.setHeader('Content-Type', 'video/MP2T');
+      res.setHeader('X-Chunk-Sequence', currentChunk.sequence.toString());
+      res.setHeader('X-Chunk-Metadata-Entity', currentChunk.metadataEntityId || '');
+      res.setHeader('X-Chunk-Data-Entity', currentChunk.arkivEntityId);
+      res.setHeader('X-Chunk-TxHash', currentChunk.arkivTxHash || '');
+      res.setHeader('Access-Control-Expose-Headers', 'X-Chunk-Sequence,X-Chunk-Metadata-Entity,X-Chunk-Data-Entity,X-Chunk-TxHash');
       res.send(chunkData);
     } catch (error) {
       console.error("Chunk fetch error:", error);
