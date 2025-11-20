@@ -47,15 +47,14 @@ export function useContractPurchaseRental() {
     },
     onSuccess: async (data, variables) => {
       toast({
-        title: "Transaction Created!",
-        description: "Processing your rental transaction...",
+        title: "Transaction Submitted!",
+        description: "Verifying your rental...",
       });
 
       if (data.txHash && data.walletAddress) {
         try {
-          // txHash is actually the Crossmint transaction ID when using Crossmint wallet
           const response = await apiRequest("POST", "/api/contract/rentals/verify", {
-            crossmintTransactionId: data.txHash,
+            txHash: data.txHash,
             walletAddress: data.walletAddress,
             catalogItemId: variables.catalogItemId,
           });
@@ -71,9 +70,9 @@ export function useContractPurchaseRental() {
           console.error("Failed to verify rental:", error);
           const errorMessage = error.error || error.message || "Verification failed";
           toast({
-            title: "Verification In Progress",
-            description: errorMessage.includes("not yet submitted") 
-              ? "Transaction is being processed. Please check back in a few moments."
+            title: "Verification Failed",
+            description: errorMessage.includes("not found") 
+              ? "Transaction is still being mined. Please wait a moment and refresh the page."
               : "Transaction succeeded but verification failed. Please contact support.",
             variant: "destructive",
             duration: 8000,

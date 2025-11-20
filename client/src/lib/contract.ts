@@ -71,41 +71,42 @@ export class FrontendContractClient {
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string, walletAddress: string) {
-    // Use Crossmint wallet if available - create transaction via backend API
+    // Use Crossmint wallet if available - send transaction directly
     if (this.crossmintWallet) {
       try {
-        console.log("Creating Crossmint transaction via backend API");
+        console.log("Sending transaction via Crossmint wallet");
         
-        // Call backend to create transaction via Crossmint API
-        const response = await fetch("/api/contract/rentals/create-transaction", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            walletAddress,
-            catalogItemId,
-            priceWei,
-          }),
+        const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import("@shared/contract");
+
+        // Use Crossmint wallet's sendTransaction method
+        // This will show the approval UI to the user automatically
+        const txHash = await this.crossmintWallet.sendTransaction({
+          chain: "ethereum-sepolia",
+          calls: [{
+            address: CONTRACT_ADDRESS,
+            abi: CONTRACT_ABI,
+            functionName: "purchaseRental",
+            args: [catalogItemId],
+            value: priceWei,
+          }],
         });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.details?.message || error.error || "Failed to create transaction");
-        }
-
-        const { transactionId, status } = await response.json();
         
-        console.log("Crossmint transaction created:", transactionId, "status:", status);
+        console.log("Transaction sent successfully:", txHash);
 
-        // Transaction will be automatically processed by Crossmint
-        // For now, return the transaction ID
         return {
-          txHash: transactionId,
+          txHash,
           receipt: null,
         };
       } catch (error: any) {
         console.error("Crossmint transaction error:", error);
+        
+        // Parse Crossmint error messages
+        if (error.message?.includes("User rejected")) {
+          throw new Error("User rejected the transaction");
+        } else if (error.message?.includes("insufficient funds")) {
+          throw new Error("Insufficient funds in wallet");
+        }
+        
         throw new Error(`Transaction failed: ${error.message || 'Unknown error'}`);
       }
     }
