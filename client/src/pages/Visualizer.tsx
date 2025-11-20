@@ -18,7 +18,7 @@ export default function Visualizer() {
   const rentalId = params?.rentalId;
   
   const { walletAddress } = useWallet();
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
