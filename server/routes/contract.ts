@@ -387,18 +387,15 @@ export function registerContractRoutes(app: Express) {
       }
 
       const rentalId = parsed.args[0];
-      const catalogItemId = parsed.args[1];
       const renter = parsed.args[2];
       const paidAmount = parsed.args[3];
       const rentalEndTime = parsed.args[4];
 
       console.log("Rental event parsed:", {
         rentalId: rentalId.toString(),
-        catalogItemId,
         renter,
         paidAmount: paidAmount.toString(),
         rentalEndTime: rentalEndTime.toString(),
-        expectedCatalogItemId,
       });
 
       // Verify the renter matches the wallet address
@@ -406,30 +403,20 @@ export function registerContractRoutes(app: Express) {
         return res.status(403).json({ error: "Wallet address does not match renter" });
       }
 
-      // Verify the catalog item matches the expected one
-      if (expectedCatalogItemId && catalogItemId !== expectedCatalogItemId) {
-        console.error("Catalog item mismatch:", {
-          received: catalogItemId,
-          expected: expectedCatalogItemId,
-          match: catalogItemId === expectedCatalogItemId,
-        });
-        return res.status(400).json({ 
-          error: "Catalog item mismatch",
-          details: {
-            received: catalogItemId,
-            expected: expectedCatalogItemId,
-          }
-        });
+      // Use the catalog item ID from the request since it's indexed in the event
+      // (indexed event parameters only store hashes, not actual values)
+      if (!expectedCatalogItemId) {
+        return res.status(400).json({ error: "Catalog item ID is required" });
       }
 
       // Get catalog item from database and verify it exists
-      const catalogItem = await storage.getCatalogItem(catalogItemId);
+      const catalogItem = await storage.getCatalogItem(expectedCatalogItemId);
       if (!catalogItem) {
         return res.status(404).json({ error: "Catalog item not found in database" });
       }
 
       // Get on-chain catalog item to verify price
-      const onChainItem = await contractClient.getCatalogItem(catalogItemId);
+      const onChainItem = await contractClient.getCatalogItem(expectedCatalogItemId);
       if (!onChainItem.catalogItemId) {
         return res.status(404).json({ error: "Catalog item not found on contract" });
       }
@@ -477,7 +464,7 @@ export function registerContractRoutes(app: Express) {
       // Create rental record
       const rental = await storage.createUserRental({
         walletAddress,
-        catalogItemId,
+        catalogItemId: expectedCatalogItemId,
         rentalCopyPlaylistId: rentalPlaylistId,
         rentalExpiresAt: expiresAt,
         txHash,
