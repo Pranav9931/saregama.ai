@@ -8,6 +8,7 @@ import path from 'path';
 import multer from 'multer';
 import { nanoid } from 'nanoid';
 import { verifyMessage } from 'ethers';
+import { registerContractRoutes } from "./routes/contract";
 
 // Configure multer for file uploads - use diskStorage to prevent auto-deletion
 const multerStorage = multer.diskStorage({
@@ -22,6 +23,9 @@ const multerStorage = multer.diskStorage({
 const upload = multer({ storage: multerStorage });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ============ Contract Routes ============
+  registerContractRoutes(app);
+
   // ============ Auth Routes ============
   
   /**
