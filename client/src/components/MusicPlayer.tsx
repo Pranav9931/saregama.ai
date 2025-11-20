@@ -74,7 +74,7 @@ export default function MusicPlayer({
 
     if (Hls.isSupported()) {
       const hls = new Hls({
-        debug: false,
+        debug: true,
         enableWorker: true,
         lowLatencyMode: false,
       });
@@ -239,12 +239,10 @@ export default function MusicPlayer({
         ref={videoRef}
         className="hidden"
         playsInline
-        crossOrigin="anonymous"
       />
       <audio
         ref={audioRef}
         className="hidden"
-        crossOrigin="anonymous"
       />
 
       <div className="h-full max-w-7xl mx-auto px-4 flex items-center gap-4 md:gap-6">

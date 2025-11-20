@@ -495,14 +495,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const m3u8Lines = [
         '#EXTM3U',
         '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:10',
+        '#EXT-X-TARGETDURATION:6',
         '#EXT-X-MEDIA-SEQUENCE:0',
         ''
       ];
 
-      // Add each chunk as a segment with relative URL
+      // Add each chunk as a segment with relative URL (6 second duration to match ffmpeg -hls_time 6)
       for (const chunk of chunks) {
-        m3u8Lines.push(`#EXTINF:10.0,`);
+        m3u8Lines.push(`#EXTINF:6.0,`);
         m3u8Lines.push(`/api/stream/${rentalId}/chunk/${chunk.sequence}?walletAddress=${walletAddress}`);
       }
 
