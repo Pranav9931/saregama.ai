@@ -206,93 +206,24 @@ export default function Visualizer() {
         </Link>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-t border-border p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-6 mb-4">
-            <img 
-              src={track.coverUrl || 'https://via.placeholder.com/80'} 
-              alt={track.title}
-              className="w-20 h-20 rounded-lg object-cover"
-              data-testid="img-album-art"
-            />
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold mb-1" data-testid="text-track-title">{track.title}</h2>
-              <p className="text-sm text-muted-foreground" data-testid="text-track-artist">{track.artist}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 mb-4">
-            <span className="text-xs text-muted-foreground w-12 text-right" data-testid="text-current-time">
-              {formatTime(currentTime)}
-            </span>
-            <Slider
-              value={[currentTime]}
-              max={duration || track.durationSeconds}
-              step={1}
-              onValueChange={handleSeek}
-              className="flex-1"
-              data-testid="slider-progress"
-            />
-            <span className="text-xs text-muted-foreground w-12" data-testid="text-total-time">
-              {formatTime(duration || track.durationSeconds)}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={toggleMute}
-                data-testid="button-volume"
-              >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-5 h-5" />
-                ) : (
-                  <Volume2 className="w-5 h-5" />
-                )}
-              </Button>
-              <Slider
-                value={[isMuted ? 0 : volume]}
-                max={100}
-                step={1}
-                onValueChange={handleVolumeChange}
-                className="w-24"
-                data-testid="slider-volume"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="icon"
-                variant="ghost"
-                data-testid="button-previous"
-              >
-                <SkipBack className="w-5 h-5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="default"
-                onClick={handlePlayPause}
-                className="w-12 h-12"
-                data-testid="button-play-pause"
-              >
-                {isPlaying ? (
-                  <Pause className="w-6 h-6" />
-                ) : (
-                  <Play className="w-6 h-6 ml-0.5" />
-                )}
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                data-testid="button-next"
-              >
-                <SkipForward className="w-5 h-5" />
-              </Button>
-            </div>
-
-            <div className="w-40" />
+      <div className="fixed bottom-0 left-0 right-0 z-50 p-8">
+        <div className="flex items-center justify-center gap-6">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handlePlayPause}
+            className="w-14 h-14 bg-white/10 hover:bg-white/20 backdrop-blur-sm"
+            data-testid="button-play-pause"
+          >
+            {isPlaying ? (
+              <Pause className="w-7 h-7 text-white" />
+            ) : (
+              <Play className="w-7 h-7 ml-0.5 text-white" />
+            )}
+          </Button>
+          <div className="text-center">
+            <h2 className="text-lg font-medium text-white mb-0.5" data-testid="text-track-title">{track.title}</h2>
+            <p className="text-sm text-white/70" data-testid="text-track-artist">{track.artist}</p>
           </div>
         </div>
       </div>
