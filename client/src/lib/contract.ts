@@ -76,25 +76,22 @@ export class FrontendContractClient {
       try {
         console.log("Using Crossmint wallet for transactions");
         
-        // Create a custom ethers provider using the Crossmint wallet's signer
-        if (!this.crossmintWallet.signer) {
-          throw new Error("Crossmint wallet signer not available");
-        }
-
-        // Create contract instance with Crossmint wallet's signer
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, this.crossmintWallet.signer);
-        
-        console.log("Contract instance created, calling purchaseRental");
-
-        // Call purchaseRental - this will trigger Crossmint's approval UI
-        const tx = await contract.purchaseRental(catalogItemId, {
+        // Use Crossmint's executeContract method
+        const result = await this.crossmintWallet.executeContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "purchaseRental",
+          args: [catalogItemId],
           value: priceWei,
         });
 
-        console.log("Transaction sent:", tx.hash);
+        console.log("Transaction sent successfully:", result);
+
+        // Extract transaction hash from result
+        const txHash = result.txId || result.transactionHash || result.hash;
 
         return {
-          txHash: tx.hash,
+          txHash,
           receipt: null,
         };
       } catch (error: any) {
