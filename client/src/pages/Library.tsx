@@ -21,6 +21,7 @@ interface Track {
   daysRemaining: number;
   isExpired?: boolean;
   durationSeconds: number;
+  type: 'audio' | 'video';
 }
 
 interface RentalWithItem extends UserRental {
@@ -64,6 +65,7 @@ export default function Library() {
         durationSeconds: rental.catalogItem.durationSeconds,
         daysRemaining: getDaysRemaining(rental.rentalExpiresAt),
         isExpired: !rental.isActive,
+        type: rental.catalogItem.type as 'audio' | 'video',
       });
       setIsPlaying(true);
     }
@@ -199,9 +201,10 @@ export default function Library() {
             artist: currentTrack.artist,
             albumArt: currentTrack.albumArt,
             duration: currentTrack.durationSeconds,
+            type: currentTrack.type,
           }}
-          isPlaying={isPlaying}
-          onPlayPause={() => setIsPlaying(!isPlaying)}
+          playlistUrl={`/api/stream/${currentTrack.id}/playlist`}
+          walletAddress={walletAddress || undefined}
           onNext={() => {
             const currentIndex = tracks.findIndex((t) => t.id === currentTrack.id);
             const nextRental = tracks[currentIndex + 1] || tracks[0];
@@ -215,6 +218,7 @@ export default function Library() {
                 durationSeconds: nextRental.catalogItem.durationSeconds,
                 daysRemaining: getDaysRemaining(nextRental.rentalExpiresAt),
                 isExpired: !nextRental.isActive,
+                type: nextRental.catalogItem.type as 'audio' | 'video',
               });
             }
           }}
@@ -231,6 +235,7 @@ export default function Library() {
                 durationSeconds: prevRental.catalogItem.durationSeconds,
                 daysRemaining: getDaysRemaining(prevRental.rentalExpiresAt),
                 isExpired: !prevRental.isActive,
+                type: prevRental.catalogItem.type as 'audio' | 'video',
               });
             }
           }}

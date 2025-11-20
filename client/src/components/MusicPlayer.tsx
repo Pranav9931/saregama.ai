@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import Hls from 'hls.js';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import {
@@ -17,67 +18,190 @@ interface MusicPlayerProps {
     artist: string;
     albumArt: string;
     duration: number;
+    type: 'audio' | 'video';
   };
-  isPlaying?: boolean;
-  onPlayPause?: () => void;
+  playlistUrl?: string;
+  walletAddress?: string;
   onNext?: () => void;
   onPrevious?: () => void;
 }
 
 export default function MusicPlayer({
   track,
-  isPlaying = false,
-  onPlayPause,
+  playlistUrl,
+  walletAddress,
   onNext,
   onPrevious,
 }: MusicPlayerProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(75);
   const [isMuted, setIsMuted] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
+  // Get the appropriate media element ref based on track type
+  const mediaRef = track?.type === 'video' ? videoRef : audioRef;
+
+  // Initialize HLS player
   useEffect(() => {
-    if (isPlaying) {
-      intervalRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (track && prev >= track.duration) {
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+    if (!playlistUrl || !walletAddress || !track) {
+      return;
     }
+
+    const mediaElement = mediaRef.current;
+    if (!mediaElement) return;
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    // Construct the full playlist URL with wallet address
+    const fullPlaylistUrl = `${playlistUrl}?walletAddress=${encodeURIComponent(walletAddress)}`;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        debug: false,
+        enableWorker: true,
+        lowLatencyMode: false,
+      });
+
+      hlsRef.current = hls;
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('HLS manifest parsed successfully');
+        setIsLoading(false);
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error('HLS error:', data);
+        if (data.fatal) {
+          setError('Failed to load stream');
+          setIsLoading(false);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error('Network error - attempting to recover');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error('Media error - attempting to recover');
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('Fatal error - cannot recover');
+              hls.destroy();
+              break;
+          }
+        }
+      });
+
+      hls.loadSource(fullPlaylistUrl);
+      hls.attachMedia(mediaElement);
+    } else if (mediaElement.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      mediaElement.src = fullPlaylistUrl;
+      mediaElement.addEventListener('loadedmetadata', () => {
+        setIsLoading(false);
+      });
+    } else {
+      setError('HLS is not supported in this browser');
+      setIsLoading(false);
+    }
+
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
       }
     };
-  }, [isPlaying, track]);
+  }, [playlistUrl, walletAddress, track, mediaRef]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // Update current time and duration
+  useEffect(() => {
+    const mediaElement = mediaRef.current;
+    if (!mediaElement) return;
+
+    const updateTime = () => setCurrentTime(mediaElement.currentTime);
+    const updateDuration = () => setDuration(mediaElement.duration || track?.duration || 0);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    mediaElement.addEventListener('timeupdate', updateTime);
+    mediaElement.addEventListener('loadedmetadata', updateDuration);
+    mediaElement.addEventListener('durationchange', updateDuration);
+    mediaElement.addEventListener('ended', handleEnded);
+
+    return () => {
+      mediaElement.removeEventListener('timeupdate', updateTime);
+      mediaElement.removeEventListener('loadedmetadata', updateDuration);
+      mediaElement.removeEventListener('durationchange', updateDuration);
+      mediaElement.removeEventListener('ended', handleEnded);
+    };
+  }, [track, mediaRef]);
+
+  const handlePlayPause = async () => {
+    const mediaElement = mediaRef.current;
+    if (!mediaElement) return;
+
+    try {
+      if (isPlaying) {
+        mediaElement.pause();
+        setIsPlaying(false);
+      } else {
+        await mediaElement.play();
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error('Playback error:', error);
+      setError('Failed to play media');
+    }
   };
 
   const handleSeek = (value: number[]) => {
+    const mediaElement = mediaRef.current;
+    if (!mediaElement) return;
+    
+    mediaElement.currentTime = value[0];
     setCurrentTime(value[0]);
-    console.log(`Seeked to: ${formatTime(value[0])}`);
   };
 
   const handleVolumeChange = (value: number[]) => {
-    setVolume(value[0]);
-    setIsMuted(value[0] === 0);
+    const mediaElement = mediaRef.current;
+    if (!mediaElement) return;
+    
+    const newVolume = value[0];
+    setVolume(newVolume);
+    mediaElement.volume = newVolume / 100;
+    setIsMuted(newVolume === 0);
   };
 
   const toggleMute = () => {
-    setIsMuted(!isMuted);
-    console.log(isMuted ? 'Unmuted' : 'Muted');
+    const mediaElement = mediaRef.current;
+    if (!mediaElement) return;
+    
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    mediaElement.muted = newMuted;
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!isFinite(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (!track) {
@@ -86,6 +210,19 @@ export default function MusicPlayer({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-24 md:h-28 bg-card border-t border-card-border z-50">
+      {/* Hidden media elements for HLS playback */}
+      <video
+        ref={videoRef}
+        className="hidden"
+        playsInline
+        crossOrigin="anonymous"
+      />
+      <audio
+        ref={audioRef}
+        className="hidden"
+        crossOrigin="anonymous"
+      />
+
       <div className="h-full max-w-7xl mx-auto px-4 flex items-center gap-4 md:gap-6">
         <div className="flex items-center gap-3 min-w-0 flex-shrink-0 w-48 md:w-64">
           <img
@@ -101,6 +238,16 @@ export default function MusicPlayer({
             <p className="text-xs md:text-sm text-muted-foreground truncate" data-testid="text-player-artist">
               {track.artist}
             </p>
+            {isLoading && (
+              <p className="text-xs text-muted-foreground" data-testid="text-loading">
+                Loading...
+              </p>
+            )}
+            {error && (
+              <p className="text-xs text-destructive" data-testid="text-error">
+                {error}
+              </p>
+            )}
           </div>
         </div>
 
@@ -111,7 +258,6 @@ export default function MusicPlayer({
               variant="ghost"
               onClick={() => {
                 onPrevious?.();
-                console.log('Previous track');
               }}
               data-testid="button-previous"
             >
@@ -120,10 +266,8 @@ export default function MusicPlayer({
             <Button
               size="icon"
               className="w-10 h-10 md:w-12 md:h-12"
-              onClick={() => {
-                onPlayPause?.();
-                console.log(isPlaying ? 'Paused' : 'Playing');
-              }}
+              onClick={handlePlayPause}
+              disabled={isLoading || !!error}
               data-testid="button-play-pause"
             >
               {isPlaying ? (
@@ -137,7 +281,6 @@ export default function MusicPlayer({
               variant="ghost"
               onClick={() => {
                 onNext?.();
-                console.log('Next track');
               }}
               data-testid="button-next"
             >
@@ -151,14 +294,15 @@ export default function MusicPlayer({
             </span>
             <Slider
               value={[currentTime]}
-              max={track.duration}
+              max={duration || track.duration}
               step={1}
               onValueChange={handleSeek}
               className="flex-1"
+              disabled={isLoading || !!error}
               data-testid="slider-progress"
             />
             <span className="text-xs text-muted-foreground w-10" data-testid="text-total-time">
-              {formatTime(track.duration)}
+              {formatTime(duration || track.duration)}
             </span>
           </div>
         </div>

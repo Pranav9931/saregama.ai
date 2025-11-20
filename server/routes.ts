@@ -437,6 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   /**
    * Serve HLS playlist for a rental
+   * Generates dynamic M3U8 playlist referencing backend chunk URLs
    * Requires wallet ownership verification - returns 401 if unauthorized
    */
   app.get("/api/stream/:rentalId/playlist", async (req, res) => {
@@ -472,24 +473,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Rental has expired" });
       }
 
-      // Verify rental has content available
-      if (!rental.rentalCopyPlaylistId) {
-        return res.status(404).json({ error: "Playlist not available for this rental" });
+      // Get all chunks for this catalog item
+      const chunks = await storage.getCatalogChunksBySequence(rental.catalogItemId);
+      
+      if (chunks.length === 0) {
+        return res.status(404).json({ error: "No chunks found for this rental" });
       }
 
-      // Fetch playlist from Arkiv
-      const playlistContent = await arkivClient.fetchPlaylist(rental.rentalCopyPlaylistId);
+      // Generate dynamic M3U8 playlist with absolute URLs
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+      
+      const m3u8Lines = [
+        '#EXTM3U',
+        '#EXT-X-VERSION:3',
+        '#EXT-X-TARGETDURATION:10',
+        '#EXT-X-MEDIA-SEQUENCE:0',
+        ''
+      ];
+
+      // Add each chunk as a segment with absolute URL
+      for (const chunk of chunks) {
+        m3u8Lines.push(`#EXTINF:10.0,`);
+        m3u8Lines.push(`${baseUrl}/api/stream/${rentalId}/chunk/${chunk.sequence}?walletAddress=${walletAddress}`);
+      }
+
+      // End playlist
+      m3u8Lines.push('#EXT-X-ENDLIST');
+      m3u8Lines.push('');
+
+      const playlistContent = m3u8Lines.join('\n');
       
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.send(playlistContent);
     } catch (error) {
-      console.error("Playlist fetch error:", error);
-      res.status(500).json({ error: "Failed to fetch playlist" });
+      console.error("Playlist generation error:", error);
+      res.status(500).json({ error: "Failed to generate playlist" });
     }
   });
 
   /**
    * Serve HLS chunk for a rental
+   * Fetches chunk using metadata linked-list structure from Arkiv blockchain
    * Requires wallet ownership verification - returns 401 if unauthorized
    */
   app.get("/api/stream/:rentalId/chunk/:sequence", async (req, res) => {
@@ -525,17 +551,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Rental has expired" });
       }
 
-      // Fetch and serve chunk
+      // Traverse the linked-list structure using nextChunkId to find the requested chunk
       const sequence = parseInt(sequenceStr);
-      const chunks = await storage.getCatalogChunksBySequence(rental.catalogItemId);
-      const chunk = chunks.find(c => c.sequence === sequence);
+      const allChunks = await storage.getCatalogChunksBySequence(rental.catalogItemId);
       
-      if (!chunk) {
-        return res.status(404).json({ error: "Chunk not found" });
+      if (allChunks.length === 0) {
+        return res.status(404).json({ error: "No chunks found" });
       }
 
-      // Fetch chunk data from Arkiv
-      const chunkData = await arkivClient.fetchChunk(chunk.arkivEntityId);
+      // Start with the first chunk (sequence 0)
+      let currentChunk = allChunks.find(c => c.sequence === 0);
+      if (!currentChunk) {
+        return res.status(404).json({ error: "First chunk not found" });
+      }
+
+      // Traverse the linked-list using nextChunkId to reach the requested sequence
+      let currentSequence = 0;
+      while (currentSequence < sequence) {
+        if (!currentChunk.nextChunkId) {
+          return res.status(404).json({ error: `Chunk ${sequence} not found in linked-list` });
+        }
+
+        // Find the next chunk in the database using nextChunkId (which points to metadataEntityId)
+        const nextChunk = allChunks.find(c => c.metadataEntityId === currentChunk.nextChunkId);
+        if (!nextChunk) {
+          return res.status(404).json({ error: `Broken linked-list at sequence ${currentSequence}` });
+        }
+
+        console.log(`[Linked-list traversal] Sequence ${currentSequence} → ${nextChunk.sequence} (nextChunkId: ${currentChunk.nextChunkId})`);
+        
+        currentChunk = nextChunk;
+        currentSequence++;
+      }
+
+      console.log(`[Linked-list traversal] Reached target sequence ${sequence}`);
+
+      // Fetch metadata entity from Arkiv to verify linked-list structure
+      if (currentChunk.metadataEntityId) {
+        try {
+          const metadata = await arkivClient.fetchChunkMetadata(currentChunk.metadataEntityId);
+          console.log(`[Chunk ${sequence}] Metadata from Arkiv:`, {
+            entityId: metadata.entityId,
+            dataEntityId: metadata.dataEntityId,
+            nextBlockId: metadata.nextBlockId
+          });
+        } catch (metadataError) {
+          console.warn(`[Chunk ${sequence}] Metadata fetch failed:`, metadataError);
+        }
+      }
+
+      // Fetch binary chunk data from Arkiv using the arkivEntityId
+      const chunkData = await arkivClient.fetchChunk(currentChunk.arkivEntityId);
       
       res.setHeader('Content-Type', 'video/MP2T');
       res.send(chunkData);

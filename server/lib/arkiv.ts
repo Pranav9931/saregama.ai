@@ -189,6 +189,34 @@ export class ArkivClient {
   }
 
   /**
+   * Fetch chunk metadata from Arkiv blockchain
+   * @param entityKey Entity ID to fetch
+   * @returns Metadata object with {entityId, dataEntityId, nextBlockId}
+   */
+  async fetchChunkMetadata(entityKey: string): Promise<{ entityId: string; dataEntityId: string; nextBlockId: string | null }> {
+    if (!this.publicClient) {
+      // Mock mode
+      console.log(`📥 [MOCK] Fetching chunk metadata: ${entityKey}`);
+      return {
+        entityId: entityKey,
+        dataEntityId: `mock_data_${entityKey}`,
+        nextBlockId: null
+      };
+    }
+
+    try {
+      const entity = await this.publicClient.getEntity(entityKey);
+      const content = Buffer.from(entity.payload).toString('utf-8');
+      const metadata = JSON.parse(content);
+      console.log(`✅ Fetched chunk metadata from Arkiv: ${entityKey}`);
+      return metadata;
+    } catch (error) {
+      console.error(`Failed to fetch chunk metadata ${entityKey} from Arkiv:`, error);
+      throw new Error(`Arkiv metadata fetch failed: ${error}`);
+    }
+  }
+
+  /**
    * Fetch playlist content from Arkiv blockchain
    * @param entityKey Entity ID to fetch
    * @returns Playlist content as string
