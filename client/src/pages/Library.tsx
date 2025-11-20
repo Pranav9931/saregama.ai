@@ -86,15 +86,11 @@ export default function Library() {
               </h1>
             </div>
             <nav className="flex items-center gap-4">
-              <Link href="/">
-                <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" data-testid="link-browse">
-                  Browse
-                </a>
+              <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" data-testid="link-browse">
+                Browse
               </Link>
-              <Link href="/library">
-                <a className="text-sm font-medium text-foreground" data-testid="link-library">
-                  Your Library
-                </a>
+              <Link href="/library" className="text-sm font-medium text-foreground" data-testid="link-library">
+                Your Library
               </Link>
             </nav>
           </div>

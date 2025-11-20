@@ -26,8 +26,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const nonce = `Sign this message to authenticate with Arkiv Music: ${Date.now()}`;
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minute expiration
       
-      // In production, store nonce with expiration in session/db
+      // Store nonce with expiration for replay protection
+      await storage.storeNonce(walletAddress, nonce, expiresAt);
+      
       res.json({ nonce });
     } catch (error) {
       console.error("Nonce generation error:", error);
@@ -46,12 +49,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Verify nonce exists and matches
+      const storedNonce = await storage.getNonce(walletAddress);
+      if (!storedNonce || storedNonce.nonce !== message) {
+        return res.status(401).json({ error: "Invalid or expired nonce" });
+      }
+
       // Verify signature
       const recoveredAddress = verifyMessage(message, signature);
       
       if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
         return res.status(401).json({ error: "Invalid signature" });
       }
+
+      // Delete used nonce to prevent replay
+      await storage.deleteNonce(walletAddress);
 
       // Get or create profile
       let profile = await storage.getProfile(walletAddress);
@@ -274,6 +286,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   /**
    * Create a rental (after payment verification)
+   * NOTE: In production, validate txHash on-chain via Web3 provider
+   * For demo purposes, we accept mock transaction hashes
    */
   app.post("/api/rentals", async (req, res) => {
     try {
@@ -283,17 +297,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      // Check if rental already exists for this tx
+      // Validate catalog item exists
+      const item = await storage.getCatalogItem(catalogItemId);
+      if (!item) {
+        return res.status(404).json({ error: "Catalog item not found" });
+      }
+
+      // Verify item is available for rental (has master playlist)
+      if (!item.masterPlaylistId) {
+        return res.status(400).json({ error: "Item not available for rental" });
+      }
+
+      // Check if rental already exists for this tx (prevent duplicates)
       const existing = await storage.getRentalByTxHash(txHash);
       if (existing) {
         return res.status(400).json({ error: "Rental already exists for this transaction" });
       }
 
-      // Get catalog item
-      const item = await storage.getCatalogItem(catalogItemId);
-      if (!item) {
-        return res.status(404).json({ error: "Catalog item not found" });
-      }
+      // TODO: In production, verify payment on-chain:
+      // - Validate txHash exists on blockchain
+      // - Check transaction value matches item.priceEth
+      // - Verify transaction is to our payment address
+      // - Confirm transaction has sufficient confirmations
 
       // Calculate expiration
       const expiresAt = new Date();
@@ -350,21 +375,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   /**
    * Serve HLS playlist for a rental
+   * Requires wallet ownership verification - returns 401 if unauthorized
    */
   app.get("/api/stream/:rentalId/playlist", async (req, res) => {
     try {
-      const rental = await storage.getRentalById(req.params.rentalId);
+      const { rentalId } = req.params;
+      const { walletAddress } = req.query;
+
+      // Require wallet address for ownership verification
+      if (!walletAddress) {
+        return res.status(401).json({ error: "Wallet address required for authentication" });
+      }
+
+      // Fetch rental
+      const rental = await storage.getRentalById(rentalId);
       
       if (!rental) {
         return res.status(404).json({ error: "Rental not found" });
       }
 
-      if (!rental.isActive || rental.rentalExpiresAt < new Date()) {
-        return res.status(403).json({ error: "Rental expired" });
+      // Verify ownership - must match the wallet that created the rental
+      if (rental.walletAddress.toLowerCase() !== (walletAddress as string).toLowerCase()) {
+        return res.status(403).json({ error: "Unauthorized: This rental belongs to a different wallet" });
       }
 
+      // Check rental status
+      if (!rental.isActive) {
+        return res.status(403).json({ error: "Rental is not active" });
+      }
+
+      // Check expiration and auto-expire if needed
+      if (rental.rentalExpiresAt < new Date()) {
+        await storage.expireRental(rentalId);
+        return res.status(403).json({ error: "Rental has expired" });
+      }
+
+      // Verify rental has content available
       if (!rental.rentalCopyPlaylistId) {
-        return res.status(404).json({ error: "Playlist not available" });
+        return res.status(404).json({ error: "Playlist not available for this rental" });
       }
 
       // Fetch playlist from Arkiv
@@ -380,16 +428,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   /**
    * Serve HLS chunk for a rental
+   * Requires wallet ownership verification - returns 401 if unauthorized
    */
   app.get("/api/stream/:rentalId/chunk/:sequence", async (req, res) => {
     try {
-      const rental = await storage.getRentalById(req.params.rentalId);
-      
-      if (!rental || !rental.isActive || rental.rentalExpiresAt < new Date()) {
-        return res.status(403).json({ error: "Access denied" });
+      const { rentalId, sequence: sequenceStr } = req.params;
+      const { walletAddress } = req.query;
+
+      // Require wallet address for ownership verification
+      if (!walletAddress) {
+        return res.status(401).json({ error: "Wallet address required for authentication" });
       }
 
-      const sequence = parseInt(req.params.sequence);
+      // Fetch rental
+      const rental = await storage.getRentalById(rentalId);
+      
+      if (!rental) {
+        return res.status(404).json({ error: "Rental not found" });
+      }
+
+      // Verify ownership - must match the wallet that created the rental
+      if (rental.walletAddress.toLowerCase() !== (walletAddress as string).toLowerCase()) {
+        return res.status(403).json({ error: "Unauthorized: This rental belongs to a different wallet" });
+      }
+
+      // Check rental status
+      if (!rental.isActive) {
+        return res.status(403).json({ error: "Rental is not active" });
+      }
+
+      // Check expiration
+      if (rental.rentalExpiresAt < new Date()) {
+        await storage.expireRental(rentalId);
+        return res.status(403).json({ error: "Rental has expired" });
+      }
+
+      // Fetch and serve chunk
+      const sequence = parseInt(sequenceStr);
       const chunks = await storage.getCatalogChunksBySequence(rental.catalogItemId);
       const chunk = chunks.find(c => c.sequence === sequence);
       

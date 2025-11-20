@@ -106,9 +106,7 @@ export default function TrackDetail() {
           <h2 className="text-2xl font-bold mb-2">Track Not Found</h2>
           <p className="text-muted-foreground mb-6">This track does not exist or has been removed.</p>
           <Link href="/">
-            <a>
-              <Button>Back to Browse</Button>
-            </a>
+            <Button>Back to Browse</Button>
           </Link>
         </div>
       </div>
@@ -120,11 +118,9 @@ export default function TrackDetail() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/">
-            <a>
-              <Button variant="ghost" size="icon" data-testid="button-back">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </a>
+            <Button variant="ghost" size="icon" data-testid="button-back">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
           </Link>
 
           <div className="flex items-center gap-3">

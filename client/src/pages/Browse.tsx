@@ -37,15 +37,11 @@ export default function Browse() {
               </h1>
             </div>
             <nav className="flex items-center gap-4">
-              <Link href="/">
-                <a className="text-sm font-medium text-foreground" data-testid="link-browse">
-                  Browse
-                </a>
+              <Link href="/" className="text-sm font-medium text-foreground" data-testid="link-browse">
+                Browse
               </Link>
-              <Link href="/library">
-                <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" data-testid="link-library">
-                  Your Library
-                </a>
+              <Link href="/library" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" data-testid="link-library">
+                Your Library
               </Link>
             </nav>
           </div>
@@ -91,17 +87,15 @@ export default function Browse() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {catalogItems.map((item) => (
               <Link key={item.id} href={`/track/${item.id}`}>
-                <a>
-                  <TrackCard
-                    id={item.id}
-                    title={item.title}
-                    artist={item.artist}
-                    albumArt={item.coverUrl || 'https://via.placeholder.com/300'}
-                    duration={formatDuration(item.durationSeconds)}
-                    daysRemaining={365}
-                    isExpired={false}
-                  />
-                </a>
+                <TrackCard
+                  id={item.id}
+                  title={item.title}
+                  artist={item.artist}
+                  albumArt={item.coverUrl || 'https://via.placeholder.com/300'}
+                  duration={formatDuration(item.durationSeconds)}
+                  daysRemaining={365}
+                  isExpired={false}
+                />
               </Link>
             ))}
           </div>

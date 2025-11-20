@@ -52,6 +52,11 @@ export interface IStorage {
   createUploadJob(job: InsertUploadJob): Promise<UploadJob>;
   updateUploadJob(id: string, updates: Partial<UploadJob>): Promise<UploadJob>;
   getUploadJobsByWallet(walletAddress: string): Promise<UploadJob[]>;
+
+  // Nonce methods for auth replay protection
+  storeNonce(walletAddress: string, nonce: string, expiresAt: Date): Promise<void>;
+  getNonce(walletAddress: string): Promise<{ nonce: string; expiresAt: Date } | undefined>;
+  deleteNonce(walletAddress: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -61,6 +66,7 @@ export class MemStorage implements IStorage {
   private catalogChunks: Map<string, CatalogChunk>;
   private userRentals: Map<string, UserRental>;
   private uploadJobs: Map<string, UploadJob>;
+  private nonces: Map<string, { nonce: string; expiresAt: Date }>;
 
   constructor() {
     this.users = new Map();
@@ -69,6 +75,7 @@ export class MemStorage implements IStorage {
     this.catalogChunks = new Map();
     this.userRentals = new Map();
     this.uploadJobs = new Map();
+    this.nonces = new Map();
   }
 
   // Legacy user methods
@@ -305,6 +312,28 @@ export class MemStorage implements IStorage {
     return Array.from(this.uploadJobs.values()).filter(
       (job) => job.walletAddress.toLowerCase() === walletAddress.toLowerCase()
     );
+  }
+
+  // Nonce methods
+  async storeNonce(walletAddress: string, nonce: string, expiresAt: Date): Promise<void> {
+    this.nonces.set(walletAddress.toLowerCase(), { nonce, expiresAt });
+  }
+
+  async getNonce(walletAddress: string): Promise<{ nonce: string; expiresAt: Date } | undefined> {
+    const stored = this.nonces.get(walletAddress.toLowerCase());
+    if (!stored) return undefined;
+    
+    // Check if expired
+    if (stored.expiresAt < new Date()) {
+      this.nonces.delete(walletAddress.toLowerCase());
+      return undefined;
+    }
+    
+    return stored;
+  }
+
+  async deleteNonce(walletAddress: string): Promise<void> {
+    this.nonces.delete(walletAddress.toLowerCase());
   }
 }
 
