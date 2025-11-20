@@ -125,6 +125,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ Test Transaction Route ============
+  
+  /**
+   * Get test transaction hash for testing
+   */
+  app.get("/api/test-transaction", async (req, res) => {
+    try {
+      const txHash = process.env.TEST_TRANSACTION_HASH || null;
+      res.json({ 
+        txHash,
+        explorerUrl: txHash ? `https://explorer.mendoza.hoodi.arkiv.network/tx/${txHash}` : null
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch test transaction" });
+    }
+  });
+
   // ============ Catalog Routes ============
   
   /**

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Upload } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Upload, ExternalLink } from 'lucide-react';
 import WalletButton from '@/components/WalletButton';
 import TrackCard from '@/components/TrackCard';
 import UploadModal from '@/components/UploadModal';
@@ -14,6 +16,10 @@ export default function Browse() {
 
   const { data: catalogItems, isLoading } = useQuery<CatalogItem[]>({
     queryKey: ['/api/catalog'],
+  });
+
+  const { data: testTransaction } = useQuery<{ txHash: string | null; explorerUrl: string | null }>({
+    queryKey: ['/api/test-transaction'],
   });
 
   const formatDuration = (seconds: number) => {
@@ -71,6 +77,41 @@ export default function Browse() {
             {catalogItems?.length || 0} {catalogItems?.length === 1 ? 'track' : 'tracks'} available
           </p>
         </div>
+
+        {testTransaction?.txHash && (
+          <Card className="mb-8 border-primary/20" data-testid="card-test-transaction">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" data-testid="badge-test-mode">Test Mode</Badge>
+                    <span className="text-sm font-semibold">Test Transaction Hash</span>
+                  </div>
+                  <p className="font-mono text-sm text-muted-foreground break-all" data-testid="text-transaction-hash">
+                    {testTransaction.txHash}
+                  </p>
+                </div>
+                {testTransaction.explorerUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    data-testid="button-view-on-explorer"
+                  >
+                    <a 
+                      href={testTransaction.explorerUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      View on Explorer
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
