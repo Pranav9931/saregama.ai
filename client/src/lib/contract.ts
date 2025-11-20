@@ -71,43 +71,53 @@ export class FrontendContractClient {
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string, walletAddress: string) {
-    // Use Crossmint wallet if available - send transaction directly
+    // Use Crossmint wallet if available - execute contract method
     if (this.crossmintWallet) {
       try {
-        console.log("Sending transaction via Crossmint wallet");
+        console.log("Executing contract via Crossmint wallet");
+        console.log("Wallet object:", this.crossmintWallet);
+        console.log("Available methods:", Object.keys(this.crossmintWallet));
         
         const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import("@shared/contract");
 
-        // Use Crossmint wallet's sendTransaction method
+        // Check if executeContract method exists
+        if (typeof this.crossmintWallet.executeContract !== 'function') {
+          console.error("executeContract is not a function. Wallet methods:", Object.keys(this.crossmintWallet));
+          throw new Error("Crossmint wallet does not support executeContract method. Available methods: " + Object.keys(this.crossmintWallet).join(', '));
+        }
+
+        // Use Crossmint wallet's executeContract method
         // This will show the approval UI to the user automatically
-        const txHash = await this.crossmintWallet.sendTransaction({
-          chain: "ethereum-sepolia",
-          calls: [{
-            address: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI,
-            functionName: "purchaseRental",
-            args: [catalogItemId],
-            value: priceWei,
-          }],
+        const result = await this.crossmintWallet.executeContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "purchaseRental",
+          args: [catalogItemId],
+          value: BigInt(priceWei),
         });
         
-        console.log("Transaction sent successfully:", txHash);
+        console.log("Transaction executed successfully:", result);
 
+        // Extract transaction hash from result
+        const txHash = result?.txId || result?.transactionHash || result;
+        
         return {
           txHash,
           receipt: null,
         };
       } catch (error: any) {
         console.error("Crossmint transaction error:", error);
+        console.error("Error type:", typeof error);
+        console.error("Error keys:", Object.keys(error));
         
         // Parse Crossmint error messages
-        if (error.message?.includes("User rejected")) {
+        if (error.message?.includes("User rejected") || error.message?.includes("rejected")) {
           throw new Error("User rejected the transaction");
-        } else if (error.message?.includes("insufficient funds")) {
+        } else if (error.message?.includes("insufficient funds") || error.message?.includes("Insufficient")) {
           throw new Error("Insufficient funds in wallet");
         }
         
-        throw new Error(`Transaction failed: ${error.message || 'Unknown error'}`);
+        throw new Error(`Transaction failed: ${error.message || error.toString() || 'Unknown error'}`);
       }
     }
 
