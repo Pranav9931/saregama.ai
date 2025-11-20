@@ -51,16 +51,9 @@ export default function ChunkIndicator({ totalChunks, currentChunk }: ChunkIndic
   }, []);
 
   return (
-    <div className="fixed bottom-20 left-0 right-0 z-40 pointer-events-none">
-      <div className="max-w-4xl mx-auto px-8">
-        <div className="bg-black/40 backdrop-blur-md rounded-lg p-4 border border-white/10">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            <span className="text-xs font-medium text-white/90">
-              Streaming from Arkiv Blockchain
-            </span>
-          </div>
-          
+    <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+      <div className="max-w-4xl mx-auto px-8 pb-6">
+        <div className="bg-black/40 backdrop-blur-md rounded-lg p-3 border border-white/10">
           <div className="flex gap-1" data-testid="chunk-progress-bar">
             {Array.from({ length: totalChunks }).map((_, index) => {
               const isLoaded = index <= currentChunk;
