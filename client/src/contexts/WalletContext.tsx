@@ -41,7 +41,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (walletAddress && jwt) {
-      fetch(`/api/profile/${walletAddress}`)
+      fetch(`/api/profile/${walletAddress}`, {
+        headers: {
+          'Authorization': `Bearer ${jwt}`,
+        },
+      })
         .then((res) => {
           if (res.ok) {
             return res.json();

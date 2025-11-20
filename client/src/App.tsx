@@ -30,7 +30,18 @@ function App() {
   const crossmintApiKey = import.meta.env.VITE_CROSSMINT_CLIENT_API_KEY;
 
   if (!crossmintApiKey) {
-    console.error('VITE_CROSSMINT_CLIENT_API_KEY environment variable is not set');
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="max-w-md p-8 text-center">
+          <h1 className="text-2xl font-bold mb-4 text-foreground">Configuration Required</h1>
+          <p className="text-muted-foreground mb-4">
+            The Crossmint API key is not configured. Please add 
+            <code className="px-2 py-1 mx-1 bg-muted rounded">VITE_CROSSMINT_CLIENT_API_KEY</code> 
+            to your environment secrets.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
