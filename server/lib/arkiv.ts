@@ -129,12 +129,12 @@ export class ArkivClient {
 
   /**
    * Upload chunk metadata with linked-list structure to Arkiv
-   * @param metadata Object containing {entityId, dataEntityId, nextBlockId}
+   * @param metadata Object containing {dataEntityId, nextBlockId}
    * @param expiresInSeconds Expiration time in seconds
    * @returns Object with entityKey and txHash
    */
   async uploadChunkMetadata(
-    metadata: { entityId: string; dataEntityId: string; nextBlockId: string | null },
+    metadata: { dataEntityId: string; nextBlockId: string | null },
     expiresInSeconds: number = 0
   ): Promise<{ entityKey: string; txHash: string }> {
     if (!this.walletClient) {
@@ -157,7 +157,7 @@ export class ArkivClient {
         expiresIn: expiresInSeconds || 31536000, // 1 year if 0
       });
 
-      console.log(`✅ Chunk metadata uploaded to Arkiv: ${entityKey} - TX: ${txHash}`);
+      console.log(`✅ Chunk metadata uploaded to Arkiv: ${entityKey} (data: ${metadata.dataEntityId}, next: ${metadata.nextBlockId || 'null'}) - TX: ${txHash}`);
       return { entityKey, txHash };
     } catch (error) {
       console.error("Failed to upload chunk metadata to Arkiv:", error);
@@ -191,14 +191,13 @@ export class ArkivClient {
   /**
    * Fetch chunk metadata from Arkiv blockchain
    * @param entityKey Entity ID to fetch
-   * @returns Metadata object with {entityId, dataEntityId, nextBlockId}
+   * @returns Metadata object with {dataEntityId, nextBlockId}
    */
-  async fetchChunkMetadata(entityKey: string): Promise<{ entityId: string; dataEntityId: string; nextBlockId: string | null }> {
+  async fetchChunkMetadata(entityKey: string): Promise<{ dataEntityId: string; nextBlockId: string | null }> {
     if (!this.publicClient) {
       // Mock mode
       console.log(`📥 [MOCK] Fetching chunk metadata: ${entityKey}`);
       return {
-        entityId: entityKey,
         dataEntityId: `mock_data_${entityKey}`,
         nextBlockId: null
       };
@@ -208,7 +207,7 @@ export class ArkivClient {
       const entity = await this.publicClient.getEntity(entityKey);
       const content = Buffer.from(entity.payload).toString('utf-8');
       const metadata = JSON.parse(content);
-      console.log(`✅ Fetched chunk metadata from Arkiv: ${entityKey}`);
+      console.log(`✅ Fetched chunk metadata from Arkiv: ${entityKey} -> data: ${metadata.dataEntityId}, next: ${metadata.nextBlockId || 'null'}`);
       return metadata;
     } catch (error) {
       console.error(`Failed to fetch chunk metadata ${entityKey} from Arkiv:`, error);

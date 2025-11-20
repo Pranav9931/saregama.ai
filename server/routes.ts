@@ -239,13 +239,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (let i = arkivChunks.length - 1; i >= 0; i--) {
             const currentChunk = arkivChunks[i];
             
-            // Upload metadata entity containing {entityId, dataEntityId, nextBlockId}
+            // Upload metadata entity containing {dataEntityId, nextBlockId}
+            // The metadata entity's own ID will be returned as entityKey
             // nextBlockId points to the NEXT metadata entity ID (not binary chunk ID)
-            const { entityKey: metadataEntityId } = await arkivClient.uploadChunkMetadata({
-              entityId: currentChunk.arkivEntityId,
-              dataEntityId: currentChunk.arkivEntityId,
+            const { entityKey: metadataEntityId, txHash: metadataTxHash } = await arkivClient.uploadChunkMetadata({
+              dataEntityId: currentChunk.arkivEntityId, // Points to the binary chunk data
               nextBlockId: nextMetadataId, // Points to next metadata entity (or null for last chunk)
             }, 0);
+            
+            console.log(`[Chunk ${i}] Metadata uploaded: ${metadataEntityId} (TX: ${metadataTxHash})`);
             
             arkivChunks[i].metadataEntityId = metadataEntityId;
             nextMetadataId = metadataEntityId; // This becomes the next chunk's nextBlockId
@@ -595,7 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const metadata = await arkivClient.fetchChunkMetadata(currentChunk.metadataEntityId);
           console.log(`[Chunk ${sequence}] Metadata from Arkiv:`, {
-            entityId: metadata.entityId,
+            metadataEntityId: currentChunk.metadataEntityId,
             dataEntityId: metadata.dataEntityId,
             nextBlockId: metadata.nextBlockId
           });
