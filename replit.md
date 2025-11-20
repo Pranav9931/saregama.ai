@@ -123,9 +123,10 @@ Preferred communication style: Simple, everyday language.
   - Purpose: Store chunked audio files and playlists
   - SDK: `@arkiv-network/sdk`
 
-- **Ethereum Wallet Integration** (MetaMask)
-  - Purpose: User authentication via wallet signatures
-  - Library: `ethers.js` for signature verification
+- **Ethereum Wallet Integration**
+  - **Crossmint Embedded Wallets** - Social login (email, Google, Twitter) with automatic wallet generation on Sepolia testnet
+  - **MetaMask** - Browser extension wallet support for on-chain rental transactions
+  - Library: `ethers.js` for signature verification and smart contract interactions
 
 ### Database
 

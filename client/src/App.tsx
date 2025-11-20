@@ -52,7 +52,7 @@ function App() {
         >
           <CrossmintWalletProvider
             createOnLogin={{
-              chain: "base",
+              chain: "ethereum-sepolia",
               signer: { type: "email" },
             }}
           >

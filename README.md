@@ -78,7 +78,7 @@ Labels and artists want reliable data on streams, geographies, and performance, 
 
 #### 1. **Crossmint Embedded Wallets - Frictionless Web3 Onboarding**
 - Email, Google, and Twitter social login
-- Automatic wallet generation in the background (Base chain)
+- Automatic wallet generation in the background (Sepolia testnet)
 - No seed phrases or crypto knowledge required
 - Wallet signature authentication for secure identity verification
 - Makes the platform feel like a normal streaming app - powered by blockchain
