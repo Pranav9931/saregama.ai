@@ -63,6 +63,14 @@ export default function Visualizer() {
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         console.log('HLS manifest parsed');
+        audioElement.play()
+          .then(() => {
+            setIsPlaying(true);
+            console.log('Autoplay started');
+          })
+          .catch((err) => {
+            console.log('Autoplay blocked by browser:', err);
+          });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -89,6 +97,16 @@ export default function Visualizer() {
       hls.attachMedia(audioElement);
     } else if (audioElement.canPlayType('application/vnd.apple.mpegurl')) {
       audioElement.src = playlistUrl;
+      audioElement.addEventListener('loadedmetadata', () => {
+        audioElement.play()
+          .then(() => {
+            setIsPlaying(true);
+            console.log('Autoplay started (native HLS)');
+          })
+          .catch((err) => {
+            console.log('Autoplay blocked by browser:', err);
+          });
+      }, { once: true });
     }
 
     return () => {
