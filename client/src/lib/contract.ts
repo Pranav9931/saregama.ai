@@ -71,53 +71,66 @@ export class FrontendContractClient {
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string, walletAddress: string) {
-    // Use Crossmint wallet if available - execute contract method
+    // Use Crossmint wallet if available - use the signer with ethers
     if (this.crossmintWallet) {
       try {
-        console.log("Executing contract via Crossmint wallet");
-        console.log("Wallet object:", this.crossmintWallet);
-        console.log("Available methods:", Object.keys(this.crossmintWallet));
+        console.log("Using Crossmint wallet signer for transaction");
         
-        const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import("@shared/contract");
-
-        // Check if executeContract method exists
-        if (typeof this.crossmintWallet.executeContract !== 'function') {
-          console.error("executeContract is not a function. Wallet methods:", Object.keys(this.crossmintWallet));
-          throw new Error("Crossmint wallet does not support executeContract method. Available methods: " + Object.keys(this.crossmintWallet).join(', '));
+        // Get the signer from Crossmint wallet
+        const signer = this.crossmintWallet.signer;
+        if (!signer) {
+          throw new Error("Crossmint wallet signer not available");
         }
 
-        // Use Crossmint wallet's executeContract method
-        // This will show the approval UI to the user automatically
-        const result = await this.crossmintWallet.executeContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: "purchaseRental",
-          args: [catalogItemId],
-          value: BigInt(priceWei),
-        });
-        
-        console.log("Transaction executed successfully:", result);
+        // Create contract instance with Crossmint signer
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-        // Extract transaction hash from result
-        const txHash = result?.txId || result?.transactionHash || result;
+        // Call purchaseRental - this will trigger Crossmint's approval UI
+        const tx = await contract.purchaseRental(catalogItemId, {
+          value: priceWei,
+        });
+
+        console.log("Transaction sent:", tx.hash);
+
+        // Wait for confirmation
+        const receipt = await tx.wait();
         
+        console.log("Transaction confirmed:", receipt.hash);
+
+        // Find RentalPurchased event
+        const rentalPurchasedEvent = receipt.logs.find((log: any) => {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            return parsed?.name === "RentalPurchased";
+          } catch {
+            return false;
+          }
+        });
+
+        if (rentalPurchasedEvent) {
+          const parsed = contract.interface.parseLog(rentalPurchasedEvent);
+          return {
+            rentalId: parsed?.args[0],
+            txHash: receipt.hash,
+            receipt,
+          };
+        }
+
         return {
-          txHash,
-          receipt: null,
+          txHash: receipt.hash,
+          receipt,
         };
       } catch (error: any) {
         console.error("Crossmint transaction error:", error);
-        console.error("Error type:", typeof error);
-        console.error("Error keys:", Object.keys(error));
         
-        // Parse Crossmint error messages
-        if (error.message?.includes("User rejected") || error.message?.includes("rejected")) {
+        // Parse error messages
+        if (error.message?.includes("user rejected") || error.message?.includes("User rejected")) {
           throw new Error("User rejected the transaction");
-        } else if (error.message?.includes("insufficient funds") || error.message?.includes("Insufficient")) {
+        } else if (error.message?.includes("insufficient funds")) {
           throw new Error("Insufficient funds in wallet");
         }
         
-        throw new Error(`Transaction failed: ${error.message || error.toString() || 'Unknown error'}`);
+        throw new Error(`Transaction failed: ${error.message || 'Unknown error'}`);
       }
     }
 
