@@ -9,8 +9,17 @@ import multer from 'multer';
 import { nanoid } from 'nanoid';
 import { verifyMessage } from 'ethers';
 
-// Configure multer for file uploads
-const upload = multer({ dest: '/tmp/uploads/' });
+// Configure multer for file uploads - use diskStorage to prevent auto-deletion
+const multerStorage = multer.diskStorage({
+  destination: '/tmp/uploads/',
+  filename: (req, file, cb) => {
+    // Keep original filename with unique prefix to prevent collisions
+    const uniqueName = `${nanoid(10)}_${file.originalname}`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage: multerStorage });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Auth Routes ============
@@ -507,7 +516,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const playlistContent = m3u8Lines.join('\n');
       
+      // Disable caching to prevent 304 responses that cause HLS.js infinite loops
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.send(playlistContent);
     } catch (error) {
       console.error("Playlist generation error:", error);
