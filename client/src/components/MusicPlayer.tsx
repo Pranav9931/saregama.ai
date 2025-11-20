@@ -9,8 +9,10 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
+  Waves,
 } from 'lucide-react';
 import { useChunkFetch } from '@/contexts/ChunkFetchContext';
+import AudioVisualizer from '@/components/AudioVisualizer';
 
 interface MusicPlayerProps {
   track?: {
@@ -42,6 +44,7 @@ export default function MusicPlayer({
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showVisualizer, setShowVisualizer] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -233,17 +236,29 @@ export default function MusicPlayer({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-24 md:h-28 bg-card border-t border-card-border z-50">
-      {/* Hidden media elements for HLS playback */}
-      <video
-        ref={videoRef}
-        className="hidden"
-        playsInline
-      />
-      <audio
-        ref={audioRef}
-        className="hidden"
-      />
+    <>
+      {/* Audio Visualizer */}
+      {showVisualizer && (
+        <div className="fixed inset-0 z-40 pointer-events-none">
+          <AudioVisualizer
+            audioElement={mediaRef.current}
+            isPlaying={isPlaying}
+            className="w-full h-full"
+          />
+        </div>
+      )}
+
+      <div className="fixed bottom-0 left-0 right-0 h-24 md:h-28 bg-card border-t border-card-border z-50">
+        {/* Hidden media elements for HLS playback */}
+        <video
+          ref={videoRef}
+          className="hidden"
+          playsInline
+        />
+        <audio
+          ref={audioRef}
+          className="hidden"
+        />
 
       <div className="h-full max-w-7xl mx-auto px-4 flex items-center gap-4 md:gap-6">
         <div className="flex items-center gap-3 min-w-0 flex-shrink-0 w-48 md:w-64">
@@ -333,6 +348,15 @@ export default function MusicPlayer({
           <Button
             size="icon"
             variant="ghost"
+            onClick={() => setShowVisualizer(!showVisualizer)}
+            className={showVisualizer ? 'text-primary' : ''}
+            data-testid="button-visualizer"
+          >
+            <Waves className="w-5 h-5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
             onClick={toggleMute}
             onMouseEnter={() => setShowVolumeSlider(true)}
             data-testid="button-volume"
@@ -361,6 +385,7 @@ export default function MusicPlayer({
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
