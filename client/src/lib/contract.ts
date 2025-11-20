@@ -71,34 +71,52 @@ export class FrontendContractClient {
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string) {
-    // Use Crossmint wallet if available
-    if (this.crossmintWallet) {
-      console.log("Crossmint wallet object:", this.crossmintWallet);
-      console.log("Crossmint wallet methods:", Object.keys(this.crossmintWallet));
-      console.log("Crossmint wallet type:", typeof this.crossmintWallet);
-      
-      // Check if executeContract exists
-      if (typeof this.crossmintWallet.executeContract === 'function') {
-        try {
-          const txHash = await this.crossmintWallet.executeContract({
-            address: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI,
-            functionName: "purchaseRental",
-            args: [catalogItemId],
-            value: BigInt(priceWei),
-          });
+    // Use Crossmint wallet signer if available
+    if (this.crossmintWallet && this.crossmintWallet.signer) {
+      try {
+        console.log("Using Crossmint wallet signer for transaction");
+        
+        // Create contract instance with Crossmint signer
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, this.crossmintWallet.signer);
+        
+        // Execute the transaction
+        const tx = await contract.purchaseRental(catalogItemId, {
+          value: priceWei,
+        });
 
+        console.log("Transaction submitted:", tx.hash);
+        
+        // Wait for transaction confirmation
+        const receipt = await tx.wait();
+        
+        console.log("Transaction confirmed:", receipt.hash);
+        
+        // Find the RentalPurchased event
+        const rentalPurchasedEvent = receipt.logs.find((log: any) => {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            return parsed?.name === "RentalPurchased";
+          } catch {
+            return false;
+          }
+        });
+
+        if (rentalPurchasedEvent) {
+          const parsed = contract.interface.parseLog(rentalPurchasedEvent);
           return {
-            txHash,
-            receipt: null,
+            rentalId: parsed?.args[0],
+            txHash: receipt.hash,
+            receipt,
           };
-        } catch (error: any) {
-          console.error("Crossmint transaction error:", error);
-          throw new Error(`Transaction failed: ${error.message || 'Unknown error'}`);
         }
-      } else {
-        console.error("executeContract method not found on wallet");
-        throw new Error("Crossmint wallet does not support executeContract. The current SDK version may not include this feature. Please use MetaMask as an alternative.");
+
+        return {
+          txHash: receipt.hash,
+          receipt,
+        };
+      } catch (error: any) {
+        console.error("Crossmint transaction error:", error);
+        throw new Error(`Transaction failed: ${error.message || 'Unknown error'}`);
       }
     }
 
