@@ -1,22 +1,23 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Play, Clock, Wallet } from 'lucide-react';
+import { ArrowLeft, Play, Clock, Wallet, ExternalLink } from 'lucide-react';
 import WalletButton from '@/components/WalletButton';
 import BlockchainInfo from '@/components/BlockchainInfo';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient } from '@/lib/queryClient';
+import { useContractPurchaseRental } from '@/hooks/use-contract';
+import { ethers } from 'ethers';
 import type { CatalogItem, CatalogChunk } from '@shared/schema';
 
 export default function TrackDetail() {
   const { id } = useParams<{ id: string }>();
   const { walletAddress, isConnected } = useWallet();
   const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
 
   const { data: item, isLoading } = useQuery<CatalogItem & { chunkCount: number }>({
     queryKey: ['/api/catalog', id],
@@ -28,45 +29,7 @@ export default function TrackDetail() {
     enabled: !!id,
   });
 
-  const rentalMutation = useMutation({
-    mutationFn: async () => {
-      if (!walletAddress || !item) throw new Error('Missing requirements');
-
-      // Simulate payment transaction (in production, use MetaMask to send ETH)
-      const mockTxHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-
-      const response = await fetch('/api/rentals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress,
-          catalogItemId: item.id,
-          txHash: mockTxHash,
-          rentalDurationDays: 30,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create rental');
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/rentals'] });
-      toast({
-        title: 'Rental Successful!',
-        description: 'Track has been added to your library',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Rental Failed',
-        description: String(error),
-        variant: 'destructive',
-      });
-    },
-  });
+  const purchaseRentalMutation = useContractPurchaseRental();
 
   const handleRent = async () => {
     if (!isConnected) {
@@ -78,12 +41,21 @@ export default function TrackDetail() {
       return;
     }
 
-    setIsProcessing(true);
+    if (!item) return;
+
     try {
-      // In production, request payment via MetaMask here
-      await rentalMutation.mutateAsync();
-    } finally {
-      setIsProcessing(false);
+      const priceWei = ethers.parseEther(item.priceEth).toString();
+      
+      const result = await purchaseRentalMutation.mutateAsync({
+        catalogItemId: item.id,
+        priceWei,
+      });
+
+      if (result.txHash) {
+        setTxHash(result.txHash);
+      }
+    } catch (error) {
+      console.error('Rental error:', error);
     }
   };
 
@@ -220,15 +192,32 @@ export default function TrackDetail() {
               </div>
 
               {isConnected ? (
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleRent}
-                  disabled={isProcessing || rentalMutation.isPending}
-                  data-testid="button-rent"
-                >
-                  {isProcessing || rentalMutation.isPending ? 'Processing...' : 'Rent Track'}
-                </Button>
+                <>
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={handleRent}
+                    disabled={purchaseRentalMutation.isPending}
+                    data-testid="button-rent"
+                  >
+                    {purchaseRentalMutation.isPending ? 'Processing Transaction...' : 'Rent Track (On-Chain)'}
+                  </Button>
+                  
+                  {txHash && (
+                    <div className="mt-4 p-3 bg-muted rounded-md">
+                      <p className="text-sm font-medium mb-1">Transaction Confirmed!</p>
+                      <a
+                        href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        View on Etherscan
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-4">

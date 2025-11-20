@@ -105,9 +105,12 @@ Preferred communication style: Simple, everyday language.
 4. Master HLS playlist stored as final entity
 
 **Smart Contract Interaction:**
-- Wallet signature verification for authentication (no smart contract deployment)
-- Rental payments simulated (production would use actual ETH transfers)
-- Transaction hashes recorded for rental audit trail
+- Deployed `ArkivMusicRental` smart contract on Sepolia testnet
+- Contract address: `0x7AdceCe47B501fD61326Cec01E5711a6B9AB334e`
+- Real on-chain rental purchases via MetaMask
+- Platform fee collection and artist royalty distribution handled on-chain
+- Transaction verification and rental creation in database
+- Wallet signature verification for authentication
 
 **Rationale:** Separating content storage (Arkiv blockchain) from payment/rental logic (simulated Ethereum) allows independent scaling. Small chunks optimize blockchain storage costs while maintaining streaming compatibility.
 
