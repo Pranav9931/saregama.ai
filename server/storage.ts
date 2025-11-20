@@ -11,8 +11,17 @@ import {
   type InsertUserRental,
   type UploadJob,
   type InsertUploadJob,
+  users,
+  profiles,
+  catalogItems,
+  catalogChunks,
+  userRentals,
+  uploadJobs,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, and, desc, gt, sql as sqlOp } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 export interface IStorage {
   // Legacy user methods (can be removed if not needed)
@@ -343,4 +352,283 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DbStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getProfile(walletAddress: string): Promise<Profile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.walletAddress, walletAddress.toLowerCase()));
+    return profile || undefined;
+  }
+
+  async createProfile(insertProfile: InsertProfile): Promise<Profile> {
+    const [profile] = await db
+      .insert(profiles)
+      .values({
+        walletAddress: insertProfile.walletAddress.toLowerCase(),
+        displayName: insertProfile.displayName,
+        avatarUrl: insertProfile.avatarUrl,
+      })
+      .returning();
+    return profile;
+  }
+
+  async updateProfile(walletAddress: string, updates: Partial<InsertProfile>): Promise<Profile> {
+    const [profile] = await db
+      .update(profiles)
+      .set(updates)
+      .where(eq(profiles.walletAddress, walletAddress.toLowerCase()))
+      .returning();
+    if (!profile) {
+      throw new Error("Profile not found");
+    }
+    return profile;
+  }
+
+  async getCatalogItem(id: string): Promise<CatalogItem | undefined> {
+    const [item] = await db
+      .select()
+      .from(catalogItems)
+      .where(eq(catalogItems.id, id));
+    return item || undefined;
+  }
+
+  async getCatalogItems(filters?: { type?: string; category?: string }): Promise<CatalogItem[]> {
+    let query = db.select().from(catalogItems);
+    
+    const conditions = [];
+    if (filters?.type) {
+      conditions.push(eq(catalogItems.type, filters.type));
+    }
+    if (filters?.category) {
+      conditions.push(eq(catalogItems.category, filters.category));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const items = await query.orderBy(desc(catalogItems.createdAt));
+    return items;
+  }
+
+  async getCatalogItemsByCreator(walletAddress: string): Promise<CatalogItem[]> {
+    const items = await db
+      .select()
+      .from(catalogItems)
+      .where(eq(catalogItems.createdBy, walletAddress.toLowerCase()))
+      .orderBy(desc(catalogItems.createdAt));
+    return items;
+  }
+
+  async createCatalogItem(insertItem: InsertCatalogItem): Promise<CatalogItem> {
+    const id = randomUUID();
+    const coverUrl = insertItem.coverUrl ?? `https://picsum.photos/seed/${id}/400/400`;
+    
+    const [item] = await db
+      .insert(catalogItems)
+      .values({
+        ...insertItem,
+        coverUrl,
+      })
+      .returning();
+    return item;
+  }
+
+  async updateCatalogItem(id: string, updates: Partial<InsertCatalogItem>): Promise<CatalogItem> {
+    const [item] = await db
+      .update(catalogItems)
+      .set(updates)
+      .where(eq(catalogItems.id, id))
+      .returning();
+    if (!item) {
+      throw new Error("Catalog item not found");
+    }
+    return item;
+  }
+
+  async getCatalogChunks(catalogItemId: string): Promise<CatalogChunk[]> {
+    const chunks = await db
+      .select()
+      .from(catalogChunks)
+      .where(eq(catalogChunks.catalogItemId, catalogItemId));
+    return chunks;
+  }
+
+  async getCatalogChunksBySequence(catalogItemId: string): Promise<CatalogChunk[]> {
+    const chunks = await db
+      .select()
+      .from(catalogChunks)
+      .where(eq(catalogChunks.catalogItemId, catalogItemId))
+      .orderBy(catalogChunks.sequence);
+    return chunks;
+  }
+
+  async createCatalogChunk(insertChunk: InsertCatalogChunk): Promise<CatalogChunk> {
+    const [chunk] = await db
+      .insert(catalogChunks)
+      .values(insertChunk)
+      .returning();
+    return chunk;
+  }
+
+  async getChunkByArkivId(arkivEntityId: string): Promise<CatalogChunk | undefined> {
+    const [chunk] = await db
+      .select()
+      .from(catalogChunks)
+      .where(eq(catalogChunks.arkivEntityId, arkivEntityId));
+    return chunk || undefined;
+  }
+
+  async getUserRentals(walletAddress: string): Promise<UserRental[]> {
+    const rentals = await db
+      .select()
+      .from(userRentals)
+      .where(eq(userRentals.walletAddress, walletAddress.toLowerCase()))
+      .orderBy(desc(userRentals.createdAt));
+    return rentals;
+  }
+
+  async getActiveRentals(walletAddress: string): Promise<UserRental[]> {
+    const rentals = await db
+      .select()
+      .from(userRentals)
+      .where(
+        and(
+          eq(userRentals.walletAddress, walletAddress.toLowerCase()),
+          eq(userRentals.isActive, true),
+          gt(userRentals.rentalExpiresAt, new Date())
+        )
+      )
+      .orderBy(desc(userRentals.createdAt));
+    return rentals;
+  }
+
+  async getRentalById(id: string): Promise<UserRental | undefined> {
+    const [rental] = await db
+      .select()
+      .from(userRentals)
+      .where(eq(userRentals.id, id));
+    return rental || undefined;
+  }
+
+  async getRentalByTxHash(txHash: string): Promise<UserRental | undefined> {
+    const [rental] = await db
+      .select()
+      .from(userRentals)
+      .where(eq(userRentals.txHash, txHash));
+    return rental || undefined;
+  }
+
+  async createUserRental(insertRental: InsertUserRental): Promise<UserRental> {
+    const [rental] = await db
+      .insert(userRentals)
+      .values(insertRental)
+      .returning();
+    return rental;
+  }
+
+  async expireRental(id: string): Promise<void> {
+    await db
+      .update(userRentals)
+      .set({ isActive: false })
+      .where(eq(userRentals.id, id));
+  }
+
+  async checkRentalAccess(
+    walletAddress: string,
+    catalogItemId: string
+  ): Promise<UserRental | undefined> {
+    const [rental] = await db
+      .select()
+      .from(userRentals)
+      .where(
+        and(
+          eq(userRentals.walletAddress, walletAddress.toLowerCase()),
+          eq(userRentals.catalogItemId, catalogItemId),
+          eq(userRentals.isActive, true),
+          gt(userRentals.rentalExpiresAt, new Date())
+        )
+      );
+    return rental || undefined;
+  }
+
+  async getUploadJob(id: string): Promise<UploadJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(uploadJobs)
+      .where(eq(uploadJobs.id, id));
+    return job || undefined;
+  }
+
+  async createUploadJob(insertJob: InsertUploadJob): Promise<UploadJob> {
+    const [job] = await db
+      .insert(uploadJobs)
+      .values(insertJob)
+      .returning();
+    return job;
+  }
+
+  async updateUploadJob(id: string, updates: Partial<UploadJob>): Promise<UploadJob> {
+    const [job] = await db
+      .update(uploadJobs)
+      .set(updates)
+      .where(eq(uploadJobs.id, id))
+      .returning();
+    if (!job) {
+      throw new Error("Upload job not found");
+    }
+    return job;
+  }
+
+  async getUploadJobsByWallet(walletAddress: string): Promise<UploadJob[]> {
+    const jobs = await db
+      .select()
+      .from(uploadJobs)
+      .where(eq(uploadJobs.walletAddress, walletAddress.toLowerCase()))
+      .orderBy(desc(uploadJobs.createdAt));
+    return jobs;
+  }
+
+  private nonces: Map<string, { nonce: string; expiresAt: Date }> = new Map();
+
+  async storeNonce(walletAddress: string, nonce: string, expiresAt: Date): Promise<void> {
+    this.nonces.set(walletAddress.toLowerCase(), { nonce, expiresAt });
+  }
+
+  async getNonce(walletAddress: string): Promise<{ nonce: string; expiresAt: Date } | undefined> {
+    const stored = this.nonces.get(walletAddress.toLowerCase());
+    if (!stored) return undefined;
+    
+    if (stored.expiresAt < new Date()) {
+      this.nonces.delete(walletAddress.toLowerCase());
+      return undefined;
+    }
+    
+    return stored;
+  }
+
+  async deleteNonce(walletAddress: string): Promise<void> {
+    this.nonces.delete(walletAddress.toLowerCase());
+  }
+}
+
+export const storage = new DbStorage();
