@@ -76,12 +76,18 @@ Labels and artists want reliable data on streams, geographies, and performance, 
 
 ### ✅ Currently Implemented
 
-#### 1. **Crossmint Embedded Wallets - Frictionless Web3 Onboarding**
-- Email, Google, and Twitter social login
-- Automatic wallet generation in the background (Sepolia testnet)
-- No seed phrases or crypto knowledge required
-- Wallet signature authentication for secure identity verification
-- Makes the platform feel like a normal streaming app - powered by blockchain
+#### 1. **Dual-Wallet Authentication & Transaction System**
+- **Crossmint Embedded Wallets** for authentication:
+  - Email, Google, and Twitter social login
+  - Automatic smart wallet generation on Sepolia testnet
+  - No seed phrases or crypto knowledge required for login
+  - Wallet signature authentication for secure identity verification
+- **MetaMask Integration** for on-chain transactions:
+  - Handles rental purchases via smart contract
+  - Automatic network switching to Sepolia
+  - Required for blockchain transaction signing
+  - Users fund with Sepolia ETH for gas fees
+- **Why Dual Wallets?** Crossmint smart contract wallets (account abstraction) don't expose traditional EIP-1193 providers. MetaMask provides the signer needed for direct smart contract interactions while Crossmint handles frictionless authentication.
 
 #### 2. **Direct Artist Upload & Publishing**
 - Artists upload audio files directly through the platform

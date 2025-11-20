@@ -64,7 +64,14 @@ export function useContractPurchaseRental() {
     onError: (error: any) => {
       console.error("Purchase rental error:", error);
       
-      if (error.message?.includes("user rejected")) {
+      if (error.message?.includes("MetaMask is required")) {
+        toast({
+          title: "MetaMask Required",
+          description: "Please install MetaMask browser extension to make on-chain rental purchases. Crossmint wallets are for login only.",
+          variant: "destructive",
+          duration: 8000,
+        });
+      } else if (error.message?.includes("user rejected")) {
         toast({
           title: "Transaction Cancelled",
           description: "You cancelled the transaction",
@@ -73,14 +80,22 @@ export function useContractPurchaseRental() {
       } else if (error.message?.includes("insufficient funds")) {
         toast({
           title: "Insufficient Funds",
-          description: "You don't have enough ETH for this transaction",
+          description: "You don't have enough Sepolia ETH for this transaction",
           variant: "destructive",
+        });
+      } else if (error.message?.includes("Sepolia")) {
+        toast({
+          title: "Wrong Network",
+          description: "Please switch MetaMask to Sepolia network or allow the network switch request",
+          variant: "destructive",
+          duration: 8000,
         });
       } else {
         toast({
           title: "Purchase Failed",
-          description: error.message || "Failed to purchase rental",
+          description: error.message || "Failed to purchase rental. Please check console for details.",
           variant: "destructive",
+          duration: 6000,
         });
       }
     },

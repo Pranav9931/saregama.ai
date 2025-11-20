@@ -193,6 +193,18 @@ export default function TrackDetail() {
 
               {isConnected ? (
                 <>
+                  <div className="mb-4 p-4 bg-muted/50 rounded-md border border-border">
+                    <h4 className="text-sm font-medium mb-2">📝 Requirements</h4>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      <li>• MetaMask browser extension installed</li>
+                      <li>• Connected to Sepolia testnet</li>
+                      <li>• Sepolia ETH for gas fees (~0.001 ETH)</li>
+                    </ul>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      💡 Crossmint login is for authentication only. MetaMask handles on-chain rental transactions.
+                    </p>
+                  </div>
+
                   <Button
                     className="w-full"
                     size="lg"
@@ -200,7 +212,7 @@ export default function TrackDetail() {
                     disabled={purchaseRentalMutation.isPending}
                     data-testid="button-rent"
                   >
-                    {purchaseRentalMutation.isPending ? 'Processing Transaction...' : 'Rent Track (On-Chain)'}
+                    {purchaseRentalMutation.isPending ? 'Processing Transaction...' : 'Rent Track (MetaMask)'}
                   </Button>
                   
                   {txHash && (

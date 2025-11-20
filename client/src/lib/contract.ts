@@ -7,18 +7,55 @@ export class FrontendContractClient {
 
   async connect() {
     if (typeof window.ethereum === "undefined") {
-      throw new Error("MetaMask is not installed");
+      throw new Error("MetaMask is required for on-chain transactions. Please install MetaMask browser extension to rent tracks.");
     }
 
-    this.provider = new ethers.BrowserProvider(window.ethereum as any);
-    
-    const network = await this.provider.getNetwork();
-    if (Number(network.chainId) !== SEPOLIA_CHAIN_ID) {
-      throw new Error(`Please switch to Sepolia network. Current chain ID: ${network.chainId}`);
-    }
+    try {
+      this.provider = new ethers.BrowserProvider(window.ethereum as any);
+      
+      const network = await this.provider.getNetwork();
+      if (Number(network.chainId) !== SEPOLIA_CHAIN_ID) {
+        try {
+          await (window.ethereum as any).request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${SEPOLIA_CHAIN_ID.toString(16)}` }],
+          });
+          
+          this.provider = new ethers.BrowserProvider(window.ethereum as any);
+        } catch (switchError: any) {
+          if (switchError.code === 4902) {
+            try {
+              await (window.ethereum as any).request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: `0x${SEPOLIA_CHAIN_ID.toString(16)}`,
+                  chainName: 'Sepolia Testnet',
+                  nativeCurrency: {
+                    name: 'Sepolia ETH',
+                    symbol: 'ETH',
+                    decimals: 18
+                  },
+                  rpcUrls: ['https://sepolia.infura.io/v3/'],
+                  blockExplorerUrls: ['https://sepolia.etherscan.io/']
+                }],
+              });
+              
+              this.provider = new ethers.BrowserProvider(window.ethereum as any);
+            } catch (addError) {
+              throw new Error("Failed to add Sepolia network to MetaMask");
+            }
+          } else {
+            throw new Error("Please switch to Sepolia network in MetaMask");
+          }
+        }
+      }
 
-    const signer = await this.provider.getSigner();
-    this.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      const signer = await this.provider.getSigner();
+      this.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    } catch (error: any) {
+      console.error("Contract connection error:", error);
+      throw error;
+    }
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string) {
