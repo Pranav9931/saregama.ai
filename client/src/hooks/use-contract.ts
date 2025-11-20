@@ -48,36 +48,56 @@ export function useContractPurchaseRental() {
     onSuccess: async (data, variables) => {
       toast({
         title: "Transaction Submitted!",
-        description: "Verifying your rental...",
+        description: "Waiting for blockchain confirmation...",
       });
 
       if (data.txHash && data.walletAddress) {
-        try {
-          const response = await apiRequest("POST", "/api/contract/rentals/verify", {
-            txHash: data.txHash,
-            walletAddress: data.walletAddress,
-            catalogItemId: variables.catalogItemId,
-          });
+        // Poll for transaction confirmation
+        let attempts = 0;
+        const maxAttempts = 60; // 60 attempts * 2 seconds = 2 minutes max
+        
+        const pollForConfirmation = async (): Promise<boolean> => {
+          try {
+            const response = await apiRequest("POST", "/api/contract/rentals/verify", {
+              txHash: data.txHash,
+              walletAddress: data.walletAddress,
+              catalogItemId: variables.catalogItemId,
+            });
 
-          toast({
-            title: "Rental Confirmed!",
-            description: "Your rental has been verified and is now active",
-          });
+            toast({
+              title: "Rental Confirmed!",
+              description: "Your rental has been verified and is now active",
+            });
 
-          queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/contract/rentals"] });
-        } catch (error: any) {
-          console.error("Failed to verify rental:", error);
-          const errorMessage = error.error || error.message || "Verification failed";
-          toast({
-            title: "Verification Failed",
-            description: errorMessage.includes("not found") 
-              ? "Transaction is still being mined. Please wait a moment and refresh the page."
-              : "Transaction succeeded but verification failed. Please contact support.",
-            variant: "destructive",
-            duration: 8000,
-          });
-        }
+            queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/contract/rentals"] });
+            return true;
+          } catch (error: any) {
+            attempts++;
+            const errorMessage = error.error || error.message || "Verification failed";
+            
+            // If transaction not found or not confirmed yet, keep polling
+            if ((errorMessage.includes("not found") || errorMessage.includes("not confirmed")) && attempts < maxAttempts) {
+              console.log(`Waiting for confirmation... (attempt ${attempts}/${maxAttempts})`);
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+              return pollForConfirmation();
+            }
+            
+            // Other errors or max attempts reached
+            console.error("Failed to verify rental:", error);
+            toast({
+              title: "Verification Failed",
+              description: errorMessage.includes("not found") 
+                ? "Transaction is taking longer than expected. Please check your rentals in a few minutes."
+                : "Transaction succeeded but verification failed. Please contact support.",
+              variant: "destructive",
+              duration: 8000,
+            });
+            return false;
+          }
+        };
+
+        await pollForConfirmation();
       }
     },
     onError: (error: any) => {
