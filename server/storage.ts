@@ -96,8 +96,9 @@ export class MemStorage implements IStorage {
 
   async createProfile(insertProfile: InsertProfile): Promise<Profile> {
     const profile: Profile = {
-      ...insertProfile,
       walletAddress: insertProfile.walletAddress.toLowerCase(),
+      displayName: insertProfile.displayName ?? null,
+      avatarUrl: insertProfile.avatarUrl ?? null,
       createdAt: new Date(),
     };
     this.profiles.set(profile.walletAddress, profile);
@@ -139,8 +140,17 @@ export class MemStorage implements IStorage {
   async createCatalogItem(insertItem: InsertCatalogItem): Promise<CatalogItem> {
     const id = randomUUID();
     const item: CatalogItem = {
-      ...insertItem,
       id,
+      type: insertItem.type,
+      title: insertItem.title,
+      artist: insertItem.artist,
+      description: insertItem.description ?? null,
+      coverUrl: insertItem.coverUrl ?? null,
+      masterPlaylistId: insertItem.masterPlaylistId ?? null,
+      priceEth: insertItem.priceEth ?? "0.0001",
+      durationSeconds: insertItem.durationSeconds,
+      category: insertItem.category ?? null,
+      createdBy: insertItem.createdBy,
       createdAt: new Date(),
     };
     this.catalogItems.set(id, item);
@@ -172,8 +182,13 @@ export class MemStorage implements IStorage {
   async createCatalogChunk(insertChunk: InsertCatalogChunk): Promise<CatalogChunk> {
     const id = randomUUID();
     const chunk: CatalogChunk = {
-      ...insertChunk,
       id,
+      catalogItemId: insertChunk.catalogItemId,
+      sequence: insertChunk.sequence,
+      arkivEntityId: insertChunk.arkivEntityId,
+      nextChunkId: insertChunk.nextChunkId ?? null,
+      sizeBytes: insertChunk.sizeBytes,
+      expiresAt: insertChunk.expiresAt ?? null,
       createdAt: new Date(),
     };
     this.catalogChunks.set(id, chunk);
@@ -216,8 +231,14 @@ export class MemStorage implements IStorage {
   async createUserRental(insertRental: InsertUserRental): Promise<UserRental> {
     const id = randomUUID();
     const rental: UserRental = {
-      ...insertRental,
       id,
+      walletAddress: insertRental.walletAddress,
+      catalogItemId: insertRental.catalogItemId,
+      rentalCopyPlaylistId: insertRental.rentalCopyPlaylistId ?? null,
+      rentalExpiresAt: insertRental.rentalExpiresAt,
+      txHash: insertRental.txHash,
+      rentalDurationDays: insertRental.rentalDurationDays,
+      paidEth: insertRental.paidEth,
       createdAt: new Date(),
       isActive: true,
     };
@@ -255,8 +276,14 @@ export class MemStorage implements IStorage {
   async createUploadJob(insertJob: InsertUploadJob): Promise<UploadJob> {
     const id = randomUUID();
     const job: UploadJob = {
-      ...insertJob,
       id,
+      walletAddress: insertJob.walletAddress,
+      fileName: insertJob.fileName,
+      fileSize: insertJob.fileSize,
+      status: insertJob.status ?? "processing",
+      progress: insertJob.progress ?? 0,
+      errorMessage: insertJob.errorMessage ?? null,
+      catalogItemId: insertJob.catalogItemId ?? null,
       createdAt: new Date(),
       completedAt: null,
     };
