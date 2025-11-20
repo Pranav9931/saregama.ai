@@ -123,7 +123,7 @@ export default function Library() {
               Your Library
             </h2>
             <p className="text-muted-foreground" data-testid="text-library-count">
-              {activeTracks.length} {activeTracks.length === 1 ? 'track' : 'tracks'} on Arkiv
+              {activeTracks.length} {activeTracks.length === 1 ? 'track' : 'tracks'}
             </p>
           </div>
 

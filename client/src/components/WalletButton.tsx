@@ -33,9 +33,6 @@ export default function WalletButton() {
 
   return (
     <div className="flex items-center gap-3" data-testid="wallet-connected">
-      <Badge variant="secondary" className="hidden sm:flex" data-testid="badge-network">
-        Arkiv Mendoza
-      </Badge>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" data-testid="button-wallet-menu">
