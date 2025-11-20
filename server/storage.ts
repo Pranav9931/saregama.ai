@@ -76,6 +76,88 @@ export class MemStorage implements IStorage {
     this.userRentals = new Map();
     this.uploadJobs = new Map();
     this.nonces = new Map();
+    
+    // Seed demo catalog items for testing
+    this.seedDemoCatalog();
+  }
+
+  private seedDemoCatalog() {
+    const demoItems: CatalogItem[] = [
+      {
+        id: randomUUID(),
+        createdBy: "0xdemo1",
+        type: "audio",
+        title: "Midnight Dreams",
+        artist: "Luna Eclipse",
+        description: "A dreamy electronic journey through the night",
+        category: "featured",
+        durationSeconds: 245,
+        coverUrl: "https://picsum.photos/seed/track1/400/400",
+        masterPlaylistId: "arkiv_entity_demo_track1_playlist",
+        priceEth: "0.0001",
+        createdAt: new Date("2024-01-15"),
+      },
+      {
+        id: randomUUID(),
+        createdBy: "0xdemo1",
+        type: "audio",
+        title: "Cosmic Journey",
+        artist: "Stellar Vibes",
+        description: "Ambient soundscapes from the cosmos",
+        category: "trending",
+        durationSeconds: 312,
+        coverUrl: "https://picsum.photos/seed/track2/400/400",
+        masterPlaylistId: "arkiv_entity_demo_track2_playlist",
+        priceEth: "0.0001",
+        createdAt: new Date("2024-02-20"),
+      },
+      {
+        id: randomUUID(),
+        createdBy: "0xdemo2",
+        type: "audio",
+        title: "Digital Horizon",
+        artist: "Neon Pulse",
+        description: "Synthwave vibes for the future",
+        category: "new-releases",
+        durationSeconds: 198,
+        coverUrl: "https://picsum.photos/seed/track3/400/400",
+        masterPlaylistId: "arkiv_entity_demo_track3_playlist",
+        priceEth: "0.0001",
+        createdAt: new Date("2024-03-10"),
+      },
+      {
+        id: randomUUID(),
+        createdBy: "0xdemo2",
+        type: "video",
+        title: "Urban Rhythm",
+        artist: "City Beats",
+        description: "Hip-hop beats from the streets",
+        category: "trending",
+        durationSeconds: 267,
+        coverUrl: "https://picsum.photos/seed/track4/400/400",
+        masterPlaylistId: "arkiv_entity_demo_track4_playlist",
+        priceEth: "0.0001",
+        createdAt: new Date("2024-04-05"),
+      },
+      {
+        id: randomUUID(),
+        createdBy: "0xdemo3",
+        type: "audio",
+        title: "Ocean Waves",
+        artist: "Nature Sounds",
+        description: "Relaxing ocean soundscapes",
+        category: "featured",
+        durationSeconds: 420,
+        coverUrl: "https://picsum.photos/seed/track5/400/400",
+        masterPlaylistId: "arkiv_entity_demo_track5_playlist",
+        priceEth: "0.0001",
+        createdAt: new Date("2024-05-12"),
+      },
+    ];
+
+    for (const item of demoItems) {
+      this.catalogItems.set(item.id, item);
+    }
   }
 
   // Legacy user methods
