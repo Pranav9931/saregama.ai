@@ -19,6 +19,7 @@ export default function AudioVisualizer({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const connectedElementRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null);
   const barsRef = useRef<THREE.Mesh[]>([]);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -112,7 +113,42 @@ export default function AudioVisualizer({
 
   // Setup Web Audio API when audio element changes
   useEffect(() => {
-    if (!audioElement) return;
+    if (!audioElement) {
+      // Cleanup when no audio element
+      if (sourceRef.current) {
+        try {
+          sourceRef.current.disconnect();
+        } catch (e) {
+          // Already disconnected
+        }
+        sourceRef.current = null;
+        connectedElementRef.current = null;
+      }
+      return;
+    }
+
+    // If this is the same element we're already connected to, reuse the connection
+    if (connectedElementRef.current === audioElement && sourceRef.current) {
+      // Ensure connections are still intact
+      try {
+        sourceRef.current.connect(analyserRef.current!);
+        analyserRef.current!.connect(audioCtxRef.current!.destination);
+      } catch (e) {
+        // Already connected
+      }
+      return;
+    }
+
+    // Different element - need to disconnect old and create new
+    if (sourceRef.current && connectedElementRef.current !== audioElement) {
+      try {
+        sourceRef.current.disconnect();
+      } catch (e) {
+        // Already disconnected
+      }
+      sourceRef.current = null;
+      connectedElementRef.current = null;
+    }
 
     // Create or reuse audio context
     if (!audioCtxRef.current) {
@@ -121,7 +157,7 @@ export default function AudioVisualizer({
 
     const audioCtx = audioCtxRef.current;
 
-    // Create analyser
+    // Create analyser if needed
     if (!analyserRef.current) {
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256; // 128 frequency bins
@@ -129,21 +165,21 @@ export default function AudioVisualizer({
       analyserRef.current = analyser;
     }
 
-    // Create source from audio element (only if not already created)
-    if (!sourceRef.current) {
-      try {
-        const source = audioCtx.createMediaElementSource(audioElement);
-        source.connect(analyserRef.current);
-        analyserRef.current.connect(audioCtx.destination);
-        sourceRef.current = source;
-      } catch (error) {
-        // Source already exists for this element, which is fine
-        console.log('Audio source already connected');
-      }
+    // Create new source from current audio element
+    try {
+      const source = audioCtx.createMediaElementSource(audioElement);
+      source.connect(analyserRef.current);
+      analyserRef.current.connect(audioCtx.destination);
+      sourceRef.current = source;
+      connectedElementRef.current = audioElement;
+    } catch (error) {
+      // Element might already have a source node - this shouldn't happen with our checks
+      console.error('Failed to create audio source:', error);
     }
 
     return () => {
-      // Don't disconnect on cleanup as it might interrupt playback
+      // Don't disconnect on cleanup - only when element changes or unmounts completely
+      // This prevents audio interruption when visualizer toggles
     };
   }, [audioElement]);
 
