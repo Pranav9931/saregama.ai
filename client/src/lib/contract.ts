@@ -71,37 +71,30 @@ export class FrontendContractClient {
   }
 
   async purchaseRental(catalogItemId: string, priceWei: string, walletAddress: string) {
-    // Use Crossmint wallet if available - convert to EVM wallet
+    // Use Crossmint wallet if available
     if (this.crossmintWallet) {
       try {
-        console.log("Using Crossmint EVM wallet for transaction");
+        console.log("Using Crossmint wallet for transactions");
         
-        // Import EVMWallet from wallets-sdk
-        const { EVMWallet } = await import("@crossmint/wallets-sdk");
-        
-        // Convert to EVM-specific wallet
-        const evmWallet = EVMWallet.from(this.crossmintWallet);
-        
-        console.log("EVM wallet created, preparing transaction");
+        // Create a custom ethers provider using the Crossmint wallet's signer
+        if (!this.crossmintWallet.signer) {
+          throw new Error("Crossmint wallet signer not available");
+        }
 
-        // Encode the contract call data
-        const iface = new ethers.Interface(CONTRACT_ABI);
-        const data = iface.encodeFunctionData("purchaseRental", [catalogItemId]) as `0x${string}`;
+        // Create contract instance with Crossmint wallet's signer
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, this.crossmintWallet.signer);
+        
+        console.log("Contract instance created, calling purchaseRental");
 
-        // Send transaction using EVM wallet
-        const result = await evmWallet.sendTransaction({
-          to: CONTRACT_ADDRESS as `0x${string}`,
-          value: BigInt(priceWei),
-          data,
+        // Call purchaseRental - this will trigger Crossmint's approval UI
+        const tx = await contract.purchaseRental(catalogItemId, {
+          value: priceWei,
         });
-        
-        console.log("Transaction sent successfully:", result);
 
-        // Extract transaction hash from result
-        const txHash = result.hash;
+        console.log("Transaction sent:", tx.hash);
 
         return {
-          txHash,
+          txHash: tx.hash,
           receipt: null,
         };
       } catch (error: any) {
