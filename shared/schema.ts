@@ -47,9 +47,10 @@ export const catalogChunks = pgTable("catalog_chunks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   catalogItemId: varchar("catalog_item_id").notNull().references(() => catalogItems.id),
   sequence: integer("sequence").notNull(), // 0, 1, 2, etc.
-  arkivEntityId: text("arkiv_entity_id").notNull(), // Arkiv entity ID for this chunk
+  arkivEntityId: text("arkiv_entity_id").notNull(), // Arkiv entity ID for binary chunk data
   arkivTxHash: text("arkiv_tx_hash"), // Arkiv transaction hash for chunk creation
-  nextChunkId: varchar("next_chunk_id"), // Points to next chunk in linked list
+  metadataEntityId: text("metadata_entity_id"), // Arkiv entity ID for metadata {entityId, data, nextBlockId}
+  nextChunkId: varchar("next_chunk_id"), // Points to next chunk's arkivEntityId in linked list
   sizeBytes: integer("size_bytes").notNull(),
   expiresAt: timestamp("expires_at"), // null for master chunks (very long expiration)
   createdAt: timestamp("created_at").defaultNow().notNull(),
