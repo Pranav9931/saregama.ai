@@ -1,22 +1,77 @@
-import { type User, type InsertUser } from "@shared/schema";
+import { 
+  type User, 
+  type InsertUser,
+  type Profile,
+  type InsertProfile,
+  type CatalogItem,
+  type InsertCatalogItem,
+  type CatalogChunk,
+  type InsertCatalogChunk,
+  type UserRental,
+  type InsertUserRental,
+  type UploadJob,
+  type InsertUploadJob,
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
 export interface IStorage {
+  // Legacy user methods (can be removed if not needed)
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+
+  // Profile methods
+  getProfile(walletAddress: string): Promise<Profile | undefined>;
+  createProfile(profile: InsertProfile): Promise<Profile>;
+  updateProfile(walletAddress: string, updates: Partial<InsertProfile>): Promise<Profile>;
+
+  // Catalog items methods
+  getCatalogItem(id: string): Promise<CatalogItem | undefined>;
+  getCatalogItems(filters?: { type?: string; category?: string }): Promise<CatalogItem[]>;
+  getCatalogItemsByCreator(walletAddress: string): Promise<CatalogItem[]>;
+  createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem>;
+  updateCatalogItem(id: string, updates: Partial<InsertCatalogItem>): Promise<CatalogItem>;
+
+  // Catalog chunks methods
+  getCatalogChunks(catalogItemId: string): Promise<CatalogChunk[]>;
+  getCatalogChunksBySequence(catalogItemId: string): Promise<CatalogChunk[]>;
+  createCatalogChunk(chunk: InsertCatalogChunk): Promise<CatalogChunk>;
+  getChunkByArkivId(arkivEntityId: string): Promise<CatalogChunk | undefined>;
+
+  // User rentals methods
+  getUserRentals(walletAddress: string): Promise<UserRental[]>;
+  getActiveRentals(walletAddress: string): Promise<UserRental[]>;
+  getRentalById(id: string): Promise<UserRental | undefined>;
+  getRentalByTxHash(txHash: string): Promise<UserRental | undefined>;
+  createUserRental(rental: InsertUserRental): Promise<UserRental>;
+  expireRental(id: string): Promise<void>;
+  checkRentalAccess(walletAddress: string, catalogItemId: string): Promise<UserRental | undefined>;
+
+  // Upload jobs methods
+  getUploadJob(id: string): Promise<UploadJob | undefined>;
+  createUploadJob(job: InsertUploadJob): Promise<UploadJob>;
+  updateUploadJob(id: string, updates: Partial<UploadJob>): Promise<UploadJob>;
+  getUploadJobsByWallet(walletAddress: string): Promise<UploadJob[]>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
+  private profiles: Map<string, Profile>;
+  private catalogItems: Map<string, CatalogItem>;
+  private catalogChunks: Map<string, CatalogChunk>;
+  private userRentals: Map<string, UserRental>;
+  private uploadJobs: Map<string, UploadJob>;
 
   constructor() {
     this.users = new Map();
+    this.profiles = new Map();
+    this.catalogItems = new Map();
+    this.catalogChunks = new Map();
+    this.userRentals = new Map();
+    this.uploadJobs = new Map();
   }
 
+  // Legacy user methods
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
@@ -32,6 +87,197 @@ export class MemStorage implements IStorage {
     const user: User = { ...insertUser, id };
     this.users.set(id, user);
     return user;
+  }
+
+  // Profile methods
+  async getProfile(walletAddress: string): Promise<Profile | undefined> {
+    return this.profiles.get(walletAddress.toLowerCase());
+  }
+
+  async createProfile(insertProfile: InsertProfile): Promise<Profile> {
+    const profile: Profile = {
+      ...insertProfile,
+      walletAddress: insertProfile.walletAddress.toLowerCase(),
+      createdAt: new Date(),
+    };
+    this.profiles.set(profile.walletAddress, profile);
+    return profile;
+  }
+
+  async updateProfile(walletAddress: string, updates: Partial<InsertProfile>): Promise<Profile> {
+    const existing = await this.getProfile(walletAddress);
+    if (!existing) {
+      throw new Error("Profile not found");
+    }
+    const updated = { ...existing, ...updates };
+    this.profiles.set(walletAddress.toLowerCase(), updated);
+    return updated;
+  }
+
+  // Catalog items methods
+  async getCatalogItem(id: string): Promise<CatalogItem | undefined> {
+    return this.catalogItems.get(id);
+  }
+
+  async getCatalogItems(filters?: { type?: string; category?: string }): Promise<CatalogItem[]> {
+    let items = Array.from(this.catalogItems.values());
+    if (filters?.type) {
+      items = items.filter((item) => item.type === filters.type);
+    }
+    if (filters?.category) {
+      items = items.filter((item) => item.category === filters.category);
+    }
+    return items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getCatalogItemsByCreator(walletAddress: string): Promise<CatalogItem[]> {
+    return Array.from(this.catalogItems.values()).filter(
+      (item) => item.createdBy.toLowerCase() === walletAddress.toLowerCase()
+    );
+  }
+
+  async createCatalogItem(insertItem: InsertCatalogItem): Promise<CatalogItem> {
+    const id = randomUUID();
+    const item: CatalogItem = {
+      ...insertItem,
+      id,
+      createdAt: new Date(),
+    };
+    this.catalogItems.set(id, item);
+    return item;
+  }
+
+  async updateCatalogItem(id: string, updates: Partial<InsertCatalogItem>): Promise<CatalogItem> {
+    const existing = await this.getCatalogItem(id);
+    if (!existing) {
+      throw new Error("Catalog item not found");
+    }
+    const updated = { ...existing, ...updates };
+    this.catalogItems.set(id, updated);
+    return updated;
+  }
+
+  // Catalog chunks methods
+  async getCatalogChunks(catalogItemId: string): Promise<CatalogChunk[]> {
+    return Array.from(this.catalogChunks.values()).filter(
+      (chunk) => chunk.catalogItemId === catalogItemId
+    );
+  }
+
+  async getCatalogChunksBySequence(catalogItemId: string): Promise<CatalogChunk[]> {
+    const chunks = await this.getCatalogChunks(catalogItemId);
+    return chunks.sort((a, b) => a.sequence - b.sequence);
+  }
+
+  async createCatalogChunk(insertChunk: InsertCatalogChunk): Promise<CatalogChunk> {
+    const id = randomUUID();
+    const chunk: CatalogChunk = {
+      ...insertChunk,
+      id,
+      createdAt: new Date(),
+    };
+    this.catalogChunks.set(id, chunk);
+    return chunk;
+  }
+
+  async getChunkByArkivId(arkivEntityId: string): Promise<CatalogChunk | undefined> {
+    return Array.from(this.catalogChunks.values()).find(
+      (chunk) => chunk.arkivEntityId === arkivEntityId
+    );
+  }
+
+  // User rentals methods
+  async getUserRentals(walletAddress: string): Promise<UserRental[]> {
+    return Array.from(this.userRentals.values()).filter(
+      (rental) => rental.walletAddress.toLowerCase() === walletAddress.toLowerCase()
+    );
+  }
+
+  async getActiveRentals(walletAddress: string): Promise<UserRental[]> {
+    const now = new Date();
+    return Array.from(this.userRentals.values()).filter(
+      (rental) =>
+        rental.walletAddress.toLowerCase() === walletAddress.toLowerCase() &&
+        rental.isActive &&
+        rental.rentalExpiresAt > now
+    );
+  }
+
+  async getRentalById(id: string): Promise<UserRental | undefined> {
+    return this.userRentals.get(id);
+  }
+
+  async getRentalByTxHash(txHash: string): Promise<UserRental | undefined> {
+    return Array.from(this.userRentals.values()).find(
+      (rental) => rental.txHash === txHash
+    );
+  }
+
+  async createUserRental(insertRental: InsertUserRental): Promise<UserRental> {
+    const id = randomUUID();
+    const rental: UserRental = {
+      ...insertRental,
+      id,
+      createdAt: new Date(),
+      isActive: true,
+    };
+    this.userRentals.set(id, rental);
+    return rental;
+  }
+
+  async expireRental(id: string): Promise<void> {
+    const rental = await this.getRentalById(id);
+    if (rental) {
+      rental.isActive = false;
+      this.userRentals.set(id, rental);
+    }
+  }
+
+  async checkRentalAccess(
+    walletAddress: string,
+    catalogItemId: string
+  ): Promise<UserRental | undefined> {
+    const now = new Date();
+    return Array.from(this.userRentals.values()).find(
+      (rental) =>
+        rental.walletAddress.toLowerCase() === walletAddress.toLowerCase() &&
+        rental.catalogItemId === catalogItemId &&
+        rental.isActive &&
+        rental.rentalExpiresAt > now
+    );
+  }
+
+  // Upload jobs methods
+  async getUploadJob(id: string): Promise<UploadJob | undefined> {
+    return this.uploadJobs.get(id);
+  }
+
+  async createUploadJob(insertJob: InsertUploadJob): Promise<UploadJob> {
+    const id = randomUUID();
+    const job: UploadJob = {
+      ...insertJob,
+      id,
+      createdAt: new Date(),
+      completedAt: null,
+    };
+    this.uploadJobs.set(id, job);
+    return job;
+  }
+
+  async updateUploadJob(id: string, updates: Partial<UploadJob>): Promise<UploadJob> {
+    const existing = await this.getUploadJob(id);
+    if (!existing) {
+      throw new Error("Upload job not found");
+    }
+    const updated = { ...existing, ...updates };
+    this.uploadJobs.set(id, updated);
+    return updated;
+  }
+
+  async getUploadJobsByWallet(walletAddress: string): Promise<UploadJob[]> {
+    return Array.from(this.uploadJobs.values()).filter(
+      (job) => job.walletAddress.toLowerCase() === walletAddress.toLowerCase()
+    );
   }
 }
 
