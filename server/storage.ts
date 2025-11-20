@@ -169,6 +169,7 @@ export class MemStorage implements IStorage {
       masterPlaylistTxHash: insertItem.masterPlaylistTxHash ?? null,
       priceEth: insertItem.priceEth ?? "0.0001",
       durationSeconds: insertItem.durationSeconds,
+      totalChunks: insertItem.totalChunks ?? 0,
       category: insertItem.category ?? null,
       createdBy: insertItem.createdBy,
       createdAt: new Date(),

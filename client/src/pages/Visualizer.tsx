@@ -6,6 +6,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-
 import { Slider } from '@/components/ui/slider';
 import Hls from 'hls.js';
 import VissonanceVisualizer from '@/components/VissonanceVisualizer';
+import ChunkIndicator from '@/components/ChunkIndicator';
 import { useWallet } from '@/contexts/WalletContext';
 import type { UserRental, CatalogItem } from '@shared/schema';
 
@@ -27,6 +28,8 @@ export default function Visualizer() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
   const [isMuted, setIsMuted] = useState(false);
+  const [currentChunk, setCurrentChunk] = useState(-1);
+  const [totalChunks, setTotalChunks] = useState(0);
 
   const { data: rental } = useQuery<RentalWithItem>({
     queryKey: ['/api/rentals', walletAddress, rentalId],
@@ -46,6 +49,10 @@ export default function Visualizer() {
 
     const audioElement = audioRef.current;
     const playlistUrl = `/api/stream/${rental.id}/playlist?walletAddress=${encodeURIComponent(walletAddress)}`;
+
+    if (rental.catalogItem?.totalChunks) {
+      setTotalChunks(rental.catalogItem.totalChunks);
+    }
 
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -71,6 +78,15 @@ export default function Visualizer() {
           .catch((err) => {
             console.log('Autoplay blocked by browser:', err);
           });
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        const url = data.frag.url;
+        const chunkMatch = url.match(/chunk\/(\d+)/);
+        if (chunkMatch) {
+          const chunkNum = parseInt(chunkMatch[1], 10);
+          setCurrentChunk(chunkNum);
+        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -223,6 +239,10 @@ export default function Visualizer() {
           </Button>
         </Link>
       </div>
+
+      {totalChunks > 0 && (
+        <ChunkIndicator totalChunks={totalChunks} currentChunk={currentChunk} />
+      )}
 
       <div className="fixed bottom-0 left-0 right-0 z-50 p-8">
         <div className="flex items-center justify-center gap-6">

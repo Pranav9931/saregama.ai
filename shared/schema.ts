@@ -30,6 +30,7 @@ export const catalogItems = pgTable("catalog_items", {
   masterPlaylistTxHash: text("master_playlist_tx_hash"), // Arkiv transaction hash for master playlist creation
   priceEth: decimal("price_eth", { precision: 18, scale: 10 }).default("0.0001").notNull(),
   durationSeconds: integer("duration_seconds").notNull(),
+  totalChunks: integer("total_chunks").notNull().default(0),
   category: text("category"), // 'featured', 'trending', 'new-releases', etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: varchar("created_by", { length: 42 }).notNull(), // wallet address of uploader
