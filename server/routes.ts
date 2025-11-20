@@ -491,11 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "No chunks found for this rental" });
       }
 
-      // Generate dynamic M3U8 playlist with absolute URLs
-      const protocol = req.protocol;
-      const host = req.get('host');
-      const baseUrl = `${protocol}://${host}`;
-      
+      // Generate dynamic M3U8 playlist with relative URLs (works from any origin)
       const m3u8Lines = [
         '#EXTM3U',
         '#EXT-X-VERSION:3',
@@ -504,10 +500,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ''
       ];
 
-      // Add each chunk as a segment with absolute URL
+      // Add each chunk as a segment with relative URL
       for (const chunk of chunks) {
         m3u8Lines.push(`#EXTINF:10.0,`);
-        m3u8Lines.push(`${baseUrl}/api/stream/${rentalId}/chunk/${chunk.sequence}?walletAddress=${walletAddress}`);
+        m3u8Lines.push(`/api/stream/${rentalId}/chunk/${chunk.sequence}?walletAddress=${walletAddress}`);
       }
 
       // End playlist
