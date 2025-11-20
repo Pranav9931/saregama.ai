@@ -340,9 +340,30 @@ export function registerContractRoutes(app: Express) {
         return res.status(400).json({ error: "Transaction failed" });
       }
 
-      // Verify transaction is to our contract
-      if (receipt.to?.toLowerCase() !== contractClient.getContractAddress().toLowerCase()) {
-        return res.status(400).json({ error: "Transaction is not for our contract" });
+      // Log transaction details for debugging
+      console.log("Transaction receipt:", {
+        to: receipt.to,
+        from: receipt.from,
+        contractAddress: contractClient.getContractAddress(),
+        logs: receipt.logs.length,
+      });
+
+      // Verify transaction is to our contract OR has logs from our contract
+      // (Crossmint may use a relay, so we check logs as well)
+      const isDirectCall = receipt.to?.toLowerCase() === contractClient.getContractAddress().toLowerCase();
+      const hasContractLogs = receipt.logs.some(log => 
+        log.address?.toLowerCase() === contractClient.getContractAddress().toLowerCase()
+      );
+
+      if (!isDirectCall && !hasContractLogs) {
+        return res.status(400).json({ 
+          error: "Transaction is not for our contract",
+          details: {
+            txTo: receipt.to,
+            expectedContract: contractClient.getContractAddress(),
+            hasLogs: receipt.logs.length > 0
+          }
+        });
       }
 
       // Parse events to find RentalPurchased event
