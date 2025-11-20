@@ -47,26 +47,36 @@ export function useContractPurchaseRental() {
     },
     onSuccess: async (data, variables) => {
       toast({
-        title: "Rental Purchased!",
-        description: `Transaction: ${data.txHash.slice(0, 10)}...`,
+        title: "Transaction Created!",
+        description: "Processing your rental transaction...",
       });
 
       if (data.txHash && data.walletAddress) {
         try {
-          await apiRequest("POST", "/api/contract/rentals/verify", {
-            txHash: data.txHash,
+          // txHash is actually the Crossmint transaction ID when using Crossmint wallet
+          const response = await apiRequest("POST", "/api/contract/rentals/verify", {
+            crossmintTransactionId: data.txHash,
             walletAddress: data.walletAddress,
             catalogItemId: variables.catalogItemId,
           });
 
+          toast({
+            title: "Rental Confirmed!",
+            description: "Your rental has been verified and is now active",
+          });
+
           queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
           queryClient.invalidateQueries({ queryKey: ["/api/contract/rentals"] });
-        } catch (error) {
+        } catch (error: any) {
           console.error("Failed to verify rental:", error);
+          const errorMessage = error.error || error.message || "Verification failed";
           toast({
-            title: "Verification Warning",
-            description: "Transaction succeeded but rental verification failed. Please contact support.",
+            title: "Verification In Progress",
+            description: errorMessage.includes("not yet submitted") 
+              ? "Transaction is being processed. Please check back in a few moments."
+              : "Transaction succeeded but verification failed. Please contact support.",
             variant: "destructive",
+            duration: 8000,
           });
         }
       }

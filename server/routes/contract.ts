@@ -313,14 +313,64 @@ export function registerContractRoutes(app: Express) {
    */
   app.post("/api/contract/rentals/verify", async (req, res) => {
     try {
-      const { txHash, walletAddress, catalogItemId: expectedCatalogItemId } = req.body;
+      const { crossmintTransactionId, walletAddress, catalogItemId: expectedCatalogItemId } = req.body;
       
-      if (!txHash || !walletAddress) {
+      if (!crossmintTransactionId || !walletAddress) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      // Check if rental already exists for this tx
-      const existing = await storage.getRentalByTxHash(txHash);
+      const CROSSMINT_API_KEY = process.env.VITE_CROSSMINT_SERVER_API_KEY;
+      if (!CROSSMINT_API_KEY) {
+        return res.status(500).json({ error: "Crossmint API key not configured" });
+      }
+
+      // Poll Crossmint API to get transaction status and blockchain hash
+      const crossmintStatusUrl = `https://staging.crossmint.com/api/v1-alpha2/wallets/${walletAddress}/transactions/${crossmintTransactionId}`;
+      
+      let attempts = 0;
+      let txData: any = null;
+      let blockchainTxHash: string | null = null;
+
+      // Poll for up to 30 seconds
+      while (attempts < 15 && !blockchainTxHash) {
+        const statusResponse = await fetch(crossmintStatusUrl, {
+          headers: {
+            "X-API-KEY": CROSSMINT_API_KEY,
+          },
+        });
+
+        if (!statusResponse.ok) {
+          const errorData = await statusResponse.json();
+          console.error("Failed to get Crossmint transaction status:", errorData);
+          return res.status(statusResponse.status).json({ 
+            error: "Failed to get transaction status",
+            details: errorData
+          });
+        }
+
+        txData = await statusResponse.json();
+        
+        // Check if transaction has been submitted to blockchain
+        if (txData.onChain?.txId) {
+          blockchainTxHash = txData.onChain.txId;
+          break;
+        }
+
+        // Wait 2 seconds before polling again
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        attempts++;
+      }
+
+      if (!blockchainTxHash) {
+        return res.status(400).json({ 
+          error: "Transaction not yet submitted to blockchain",
+          status: txData?.status,
+          details: "Please try again in a few moments"
+        });
+      }
+
+      // Check if rental already exists for this blockchain tx
+      const existing = await storage.getRentalByTxHash(blockchainTxHash);
       if (existing) {
         return res.json({ 
           rental: existing,
@@ -328,9 +378,9 @@ export function registerContractRoutes(app: Express) {
         });
       }
 
-      // Get transaction receipt
+      // Get transaction receipt from blockchain
       const provider = contractClient.getProvider();
-      const receipt = await provider.getTransactionReceipt(txHash);
+      const receipt = await provider.getTransactionReceipt(blockchainTxHash);
       
       if (!receipt) {
         return res.status(404).json({ error: "Transaction not found" });
@@ -439,7 +489,7 @@ export function registerContractRoutes(app: Express) {
         catalogItemId,
         rentalCopyPlaylistId: rentalPlaylistId,
         rentalExpiresAt: expiresAt,
-        txHash,
+        txHash: blockchainTxHash,
         rentalDurationDays,
         paidEth: ethers.formatEther(paidAmount),
       });
