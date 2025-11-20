@@ -50,3 +50,8 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+TEST_TRANSACTION_HASH = "0x2ee4578ad0f12390bd0d529a51aeb05d54b51efc63980013aabfea26fed70766"
