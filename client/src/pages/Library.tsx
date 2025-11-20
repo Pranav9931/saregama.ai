@@ -1,18 +1,16 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Upload, Grid3x3, List } from 'lucide-react';
+import { Link } from 'wouter';
 import WalletButton from '@/components/WalletButton';
 import ThemeToggle from '@/components/ThemeToggle';
 import TrackCard from '@/components/TrackCard';
 import MusicPlayer from '@/components/MusicPlayer';
 import UploadModal from '@/components/UploadModal';
 import EmptyState from '@/components/EmptyState';
-
-import album1 from '@assets/generated_images/Purple_gradient_album_art_65c8937b.png';
-import album2 from '@assets/generated_images/Pink_sunset_album_art_f09cef53.png';
-import album3 from '@assets/generated_images/Teal_geometric_album_art_9731e8ee.png';
-import album4 from '@assets/generated_images/Cosmic_nebula_album_art_6d7ad554.png';
-import album5 from '@assets/generated_images/Golden_waves_album_art_4a8d1f61.png';
+import { useWallet } from '@/contexts/WalletContext';
+import type { UserRental, CatalogItem } from '@shared/schema';
 
 interface Track {
   id: string;
@@ -25,96 +23,60 @@ interface Track {
   durationSeconds: number;
 }
 
+interface RentalWithItem extends UserRental {
+  catalogItem?: CatalogItem;
+}
+
 export default function Library() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const { walletAddress, isConnected } = useWallet();
 
-  const [tracks, setTracks] = useState<Track[]>([
-    {
-      id: '1',
-      title: 'Neon Dreams',
-      artist: 'Synthwave Collective',
-      albumArt: album1,
-      duration: '3:45',
-      durationSeconds: 225,
-      daysRemaining: 30,
-    },
-    {
-      id: '2',
-      title: 'Sunset Boulevard',
-      artist: 'Vaporwave Artists',
-      albumArt: album2,
-      duration: '4:20',
-      durationSeconds: 260,
-      daysRemaining: 15,
-    },
-    {
-      id: '3',
-      title: 'Digital Waves',
-      artist: 'Cyber Sound',
-      albumArt: album3,
-      duration: '5:12',
-      durationSeconds: 312,
-      daysRemaining: 7,
-    },
-    {
-      id: '4',
-      title: 'Cosmic Journey',
-      artist: 'Space Explorers',
-      albumArt: album4,
-      duration: '6:30',
-      durationSeconds: 390,
-      daysRemaining: 1,
-    },
-    {
-      id: '5',
-      title: 'Golden Hour',
-      artist: 'Ambient Collective',
-      albumArt: album5,
-      duration: '4:55',
-      durationSeconds: 295,
-      daysRemaining: 0,
-      isExpired: true,
-    },
-  ]);
+  const { data: rentals, isLoading } = useQuery<RentalWithItem[]>({
+    queryKey: ['/api/rentals', walletAddress],
+    enabled: !!walletAddress,
+  });
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getDaysRemaining = (expiresAt: Date) => {
+    const now = new Date();
+    const expires = new Date(expiresAt);
+    const diff = expires.getTime() - now.getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
 
   const handlePlayTrack = (trackId: string) => {
-    const track = tracks.find((t) => t.id === trackId);
-    if (track && !track.isExpired) {
+    const rental = rentals?.find((r) => r.id === trackId);
+    if (rental && rental.catalogItem && rental.isActive) {
       setCurrentTrack({
-        ...track,
-        duration: track.duration,
+        id: rental.id,
+        title: rental.catalogItem.title,
+        artist: rental.catalogItem.artist,
+        albumArt: rental.catalogItem.coverUrl || 'https://via.placeholder.com/300',
+        duration: formatDuration(rental.catalogItem.durationSeconds),
+        durationSeconds: rental.catalogItem.durationSeconds,
+        daysRemaining: getDaysRemaining(rental.rentalExpiresAt),
+        isExpired: !rental.isActive,
       });
       setIsPlaying(true);
     }
   };
 
-  const handleUploadComplete = (newTrack: any) => {
-    const newId = (tracks.length + 1).toString();
-    setTracks([
-      {
-        id: newId,
-        title: newTrack.title,
-        artist: newTrack.artist,
-        albumArt: album1,
-        duration: '3:30',
-        durationSeconds: 210,
-        daysRemaining: newTrack.rentalDuration,
-      },
-      ...tracks,
-    ]);
-    console.log('New track added:', newTrack);
-  };
-
-  const activeTracks = tracks.filter((t) => !t.isExpired);
+  const activeTracks = rentals?.filter((r) => r.isActive) || [];
+  const tracks = rentals || [];
 
   return (
     <div className="min-h-screen bg-background pb-32">
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-lg">A</span>
@@ -123,6 +85,18 @@ export default function Library() {
                 Arkiv Music
               </h1>
             </div>
+            <nav className="flex items-center gap-4">
+              <Link href="/">
+                <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" data-testid="link-browse">
+                  Browse
+                </a>
+              </Link>
+              <Link href="/library">
+                <a className="text-sm font-medium text-foreground" data-testid="link-library">
+                  Your Library
+                </a>
+              </Link>
+            </nav>
           </div>
 
           <div className="flex items-center gap-3">
@@ -171,7 +145,22 @@ export default function Library() {
           </div>
         </div>
 
-        {tracks.length === 0 ? (
+        {!isConnected ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground mb-4">Please connect your wallet to view your library</p>
+            <WalletButton />
+          </div>
+        ) : isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-square bg-muted rounded-lg mb-4" />
+                <div className="h-4 bg-muted rounded mb-2" />
+                <div className="h-3 bg-muted rounded w-2/3" />
+              </div>
+            ))}
+          </div>
+        ) : tracks.length === 0 ? (
           <EmptyState onUploadClick={() => setUploadModalOpen(true)} />
         ) : (
           <div
@@ -181,13 +170,24 @@ export default function Library() {
                 : 'space-y-4'
             }
           >
-            {tracks.map((track) => (
-              <TrackCard
-                key={track.id}
-                {...track}
-                onPlay={handlePlayTrack}
-              />
-            ))}
+            {tracks.map((rental) => {
+              const item = rental.catalogItem;
+              if (!item) return null;
+              
+              return (
+                <TrackCard
+                  key={rental.id}
+                  id={rental.id}
+                  title={item.title}
+                  artist={item.artist}
+                  albumArt={item.coverUrl || 'https://via.placeholder.com/300'}
+                  duration={formatDuration(item.durationSeconds)}
+                  daysRemaining={getDaysRemaining(rental.rentalExpiresAt)}
+                  isExpired={!rental.isActive || new Date(rental.rentalExpiresAt) < new Date()}
+                  onPlay={handlePlayTrack}
+                />
+              );
+            })}
           </div>
         )}
       </main>
@@ -205,16 +205,34 @@ export default function Library() {
           onPlayPause={() => setIsPlaying(!isPlaying)}
           onNext={() => {
             const currentIndex = tracks.findIndex((t) => t.id === currentTrack.id);
-            const nextTrack = tracks[currentIndex + 1] || tracks[0];
-            if (!nextTrack.isExpired) {
-              setCurrentTrack(nextTrack);
+            const nextRental = tracks[currentIndex + 1] || tracks[0];
+            if (nextRental?.catalogItem && nextRental.isActive) {
+              setCurrentTrack({
+                id: nextRental.id,
+                title: nextRental.catalogItem.title,
+                artist: nextRental.catalogItem.artist,
+                albumArt: nextRental.catalogItem.coverUrl || 'https://via.placeholder.com/300',
+                duration: formatDuration(nextRental.catalogItem.durationSeconds),
+                durationSeconds: nextRental.catalogItem.durationSeconds,
+                daysRemaining: getDaysRemaining(nextRental.rentalExpiresAt),
+                isExpired: !nextRental.isActive,
+              });
             }
           }}
           onPrevious={() => {
             const currentIndex = tracks.findIndex((t) => t.id === currentTrack.id);
-            const prevTrack = tracks[currentIndex - 1] || tracks[tracks.length - 1];
-            if (!prevTrack.isExpired) {
-              setCurrentTrack(prevTrack);
+            const prevRental = tracks[currentIndex - 1] || tracks[tracks.length - 1];
+            if (prevRental?.catalogItem && prevRental.isActive) {
+              setCurrentTrack({
+                id: prevRental.id,
+                title: prevRental.catalogItem.title,
+                artist: prevRental.catalogItem.artist,
+                albumArt: prevRental.catalogItem.coverUrl || 'https://via.placeholder.com/300',
+                duration: formatDuration(prevRental.catalogItem.durationSeconds),
+                durationSeconds: prevRental.catalogItem.durationSeconds,
+                daysRemaining: getDaysRemaining(prevRental.rentalExpiresAt),
+                isExpired: !prevRental.isActive,
+              });
             }
           }}
         />
@@ -223,7 +241,9 @@ export default function Library() {
       <UploadModal
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}
-        onUploadComplete={handleUploadComplete}
+        onUploadComplete={() => {
+          setUploadModalOpen(false);
+        }}
       />
     </div>
   );

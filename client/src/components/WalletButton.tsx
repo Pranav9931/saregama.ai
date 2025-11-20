@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,39 +9,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Wallet, LogOut, ExternalLink } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
 
-interface WalletButtonProps {
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-}
+export default function WalletButton() {
+  const { walletAddress, isConnected, isConnecting, connectWallet, disconnectWallet } = useWallet();
 
-export default function WalletButton({ onConnect, onDisconnect }: WalletButtonProps) {
-  const [isConnected, setIsConnected] = useState(false);
-  const [address, setAddress] = useState('');
-  const [isConnecting, setIsConnecting] = useState(false);
-
-  const handleConnect = async () => {
-    setIsConnecting(true);
-    setTimeout(() => {
-      setAddress('0x1234...5678');
-      setIsConnected(true);
-      setIsConnecting(false);
-      onConnect?.();
-      console.log('Wallet connected');
-    }, 1000);
-  };
-
-  const handleDisconnect = () => {
-    setIsConnected(false);
-    setAddress('');
-    onDisconnect?.();
-    console.log('Wallet disconnected');
-  };
+  const truncatedAddress = walletAddress
+    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+    : '';
 
   if (!isConnected) {
     return (
       <Button
-        onClick={handleConnect}
+        onClick={connectWallet}
         disabled={isConnecting}
         data-testid="button-connect-wallet"
       >
@@ -61,7 +40,7 @@ export default function WalletButton({ onConnect, onDisconnect }: WalletButtonPr
         <DropdownMenuTrigger asChild>
           <Button variant="outline" data-testid="button-wallet-menu">
             <Wallet className="w-4 h-4 mr-2" />
-            <span className="font-mono">{address}</span>
+            <span className="font-mono">{truncatedAddress}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
@@ -73,7 +52,7 @@ export default function WalletButton({ onConnect, onDisconnect }: WalletButtonPr
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={handleDisconnect}
+            onClick={disconnectWallet}
             className="text-destructive"
             data-testid="button-disconnect"
           >
