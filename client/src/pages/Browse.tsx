@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 import WalletButton from '@/components/WalletButton';
-import ThemeToggle from '@/components/ThemeToggle';
 import TrackCard from '@/components/TrackCard';
 import UploadModal from '@/components/UploadModal';
 import EmptyState from '@/components/EmptyState';
@@ -30,10 +29,10 @@ export default function Browse() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">A</span>
+                <span className="text-primary-foreground font-bold text-lg">S</span>
               </div>
               <h1 className="text-xl font-serif font-bold hidden sm:block" data-testid="text-logo">
-                Arkiv Music
+                Saregama.ai
               </h1>
             </div>
             <nav className="flex items-center gap-4">
@@ -58,7 +57,6 @@ export default function Browse() {
               <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Upload</span>
             </Button>
-            <ThemeToggle />
             <WalletButton />
           </div>
         </div>
@@ -70,7 +68,7 @@ export default function Browse() {
             Discover Music
           </h2>
           <p className="text-muted-foreground" data-testid="text-browse-subtitle">
-            {catalogItems?.length || 0} tracks available on Arkiv blockchain
+            {catalogItems?.length || 0} {catalogItems?.length === 1 ? 'track' : 'tracks'} available
           </p>
         </div>
 

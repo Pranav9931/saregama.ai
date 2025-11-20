@@ -76,139 +76,6 @@ export class MemStorage implements IStorage {
     this.userRentals = new Map();
     this.uploadJobs = new Map();
     this.nonces = new Map();
-    
-    // Seed demo catalog items for testing
-    this.seedDemoCatalog();
-  }
-
-  private seedDemoCatalog() {
-    const demoItems: CatalogItem[] = [
-      {
-        id: randomUUID(),
-        createdBy: "0xdemo1",
-        type: "audio",
-        title: "Midnight Dreams",
-        artist: "Luna Eclipse",
-        description: "A dreamy electronic journey through the night",
-        category: "featured",
-        durationSeconds: 245,
-        coverUrl: "https://picsum.photos/seed/track1/400/400",
-        masterPlaylistId: "arkiv_entity_demo_track1_playlist",
-        masterPlaylistTxHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-        priceEth: "0.0001",
-        createdAt: new Date("2024-01-15"),
-      },
-      {
-        id: randomUUID(),
-        createdBy: "0xdemo1",
-        type: "audio",
-        title: "Cosmic Journey",
-        artist: "Stellar Vibes",
-        description: "Ambient soundscapes from the cosmos",
-        category: "trending",
-        durationSeconds: 312,
-        coverUrl: "https://picsum.photos/seed/track2/400/400",
-        masterPlaylistId: "arkiv_entity_demo_track2_playlist",
-        masterPlaylistTxHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-        priceEth: "0.0001",
-        createdAt: new Date("2024-02-20"),
-      },
-      {
-        id: randomUUID(),
-        createdBy: "0xdemo2",
-        type: "audio",
-        title: "Digital Horizon",
-        artist: "Neon Pulse",
-        description: "Synthwave vibes for the future",
-        category: "new-releases",
-        durationSeconds: 198,
-        coverUrl: "https://picsum.photos/seed/track3/400/400",
-        masterPlaylistId: "arkiv_entity_demo_track3_playlist",
-        masterPlaylistTxHash: "0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456",
-        priceEth: "0.0001",
-        createdAt: new Date("2024-03-10"),
-      },
-      {
-        id: randomUUID(),
-        createdBy: "0xdemo2",
-        type: "video",
-        title: "Urban Rhythm",
-        artist: "City Beats",
-        description: "Hip-hop beats from the streets",
-        category: "trending",
-        durationSeconds: 267,
-        coverUrl: "https://picsum.photos/seed/track4/400/400",
-        masterPlaylistId: "arkiv_entity_demo_track4_playlist",
-        masterPlaylistTxHash: "0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
-        priceEth: "0.0001",
-        createdAt: new Date("2024-04-05"),
-      },
-      {
-        id: randomUUID(),
-        createdBy: "0xdemo3",
-        type: "audio",
-        title: "Ocean Waves",
-        artist: "Nature Sounds",
-        description: "Relaxing ocean soundscapes",
-        category: "featured",
-        durationSeconds: 420,
-        coverUrl: "https://picsum.photos/seed/track5/400/400",
-        masterPlaylistId: "arkiv_entity_demo_track5_playlist",
-        masterPlaylistTxHash: "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        priceEth: "0.0001",
-        createdAt: new Date("2024-05-12"),
-      },
-    ];
-
-    for (const item of demoItems) {
-      this.catalogItems.set(item.id, item);
-    }
-
-    // Seed demo chunks for the first track to demonstrate blockchain storage
-    // Note: nextChunkId points to the next chunk's METADATA entity ID (linked-list structure)
-    const firstItemId = demoItems[0].id;
-    const demoChunks: CatalogChunk[] = [
-      {
-        id: randomUUID(),
-        catalogItemId: firstItemId,
-        sequence: 0,
-        arkivEntityId: "arkiv_chunk_demo_track1_00",
-        arkivTxHash: "0xabc1234567890def1234567890abc1234567890def1234567890abc1234567890",
-        metadataEntityId: "arkiv_metadata_demo_track1_00",
-        nextChunkId: "arkiv_metadata_demo_track1_01", // Points to next chunk's metadata entity
-        sizeBytes: 524288,
-        expiresAt: null,
-        createdAt: new Date("2024-01-15"),
-      },
-      {
-        id: randomUUID(),
-        catalogItemId: firstItemId,
-        sequence: 1,
-        arkivEntityId: "arkiv_chunk_demo_track1_01",
-        arkivTxHash: "0xdef9876543210abc9876543210def9876543210abc9876543210def987654321",
-        metadataEntityId: "arkiv_metadata_demo_track1_01",
-        nextChunkId: "arkiv_metadata_demo_track1_02", // Points to next chunk's metadata entity
-        sizeBytes: 498432,
-        expiresAt: null,
-        createdAt: new Date("2024-01-15"),
-      },
-      {
-        id: randomUUID(),
-        catalogItemId: firstItemId,
-        sequence: 2,
-        arkivEntityId: "arkiv_chunk_demo_track1_02",
-        arkivTxHash: "0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890",
-        metadataEntityId: "arkiv_metadata_demo_track1_02",
-        nextChunkId: null, // Last chunk in the chain
-        sizeBytes: 512000,
-        expiresAt: null,
-        createdAt: new Date("2024-01-15"),
-      },
-    ];
-
-    for (const chunk of demoChunks) {
-      this.catalogChunks.set(chunk.id, chunk);
-    }
   }
 
   // Legacy user methods
@@ -279,13 +146,16 @@ export class MemStorage implements IStorage {
 
   async createCatalogItem(insertItem: InsertCatalogItem): Promise<CatalogItem> {
     const id = randomUUID();
+    // Generate persistent random artwork using the ID as seed
+    const coverUrl = insertItem.coverUrl ?? `https://picsum.photos/seed/${id}/400/400`;
+    
     const item: CatalogItem = {
       id,
       type: insertItem.type,
       title: insertItem.title,
       artist: insertItem.artist,
       description: insertItem.description ?? null,
-      coverUrl: insertItem.coverUrl ?? null,
+      coverUrl,
       masterPlaylistId: insertItem.masterPlaylistId ?? null,
       masterPlaylistTxHash: insertItem.masterPlaylistTxHash ?? null,
       priceEth: insertItem.priceEth ?? "0.0001",

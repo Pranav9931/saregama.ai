@@ -73,8 +73,6 @@ export const userRentals = pgTable("user_rentals", {
   txHash: text("tx_hash").notNull(), // Ethereum transaction hash for payment
   rentalDurationDays: integer("rental_duration_days").notNull(),
   paidEth: decimal("paid_eth", { precision: 18, scale: 10 }).notNull(),
-  contractAddress: varchar("contract_address", { length: 42 }), // Smart contract address used for rental
-  mimicTaskId: text("mimic_task_id"), // Mimic protocol task ID for auto-expiration
   createdAt: timestamp("created_at").defaultNow().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
 });

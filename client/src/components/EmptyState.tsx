@@ -15,8 +15,7 @@ export default function EmptyState({ onUploadClick }: EmptyStateProps) {
         Your library is empty
       </h2>
       <p className="text-muted-foreground mb-6 max-w-md" data-testid="text-empty-description">
-        Upload your first track to the Arkiv blockchain and start building your
-        decentralized music collection
+        Upload your first track and start building your decentralized music collection
       </p>
       <Button
         size="lg"

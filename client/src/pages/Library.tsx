@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Upload, Grid3x3, List } from 'lucide-react';
 import { Link } from 'wouter';
 import WalletButton from '@/components/WalletButton';
-import ThemeToggle from '@/components/ThemeToggle';
 import TrackCard from '@/components/TrackCard';
 import MusicPlayer from '@/components/MusicPlayer';
 import UploadModal from '@/components/UploadModal';
@@ -84,10 +83,10 @@ export default function Library() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">A</span>
+                <span className="text-primary-foreground font-bold text-lg">S</span>
               </div>
               <h1 className="text-xl font-serif font-bold hidden sm:block" data-testid="text-logo">
-                Arkiv Music
+                Saregama.ai
               </h1>
             </div>
             <nav className="flex items-center gap-4">
@@ -112,7 +111,6 @@ export default function Library() {
               <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Upload</span>
             </Button>
-            <ThemeToggle />
             <WalletButton />
           </div>
         </div>

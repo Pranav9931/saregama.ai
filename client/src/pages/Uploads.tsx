@@ -8,7 +8,6 @@ import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Upload, Hash, Package, Clock, FileAudio, CheckCircle2, XCircle } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import WalletButton from '@/components/WalletButton';
-import ThemeToggle from '@/components/ThemeToggle';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface UploadJob {
@@ -106,10 +105,10 @@ export default function Uploads() {
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground font-bold" data-testid="text-logo">
-                A
+                S
               </div>
               <h1 className="text-xl font-serif font-bold hidden sm:block" data-testid="text-logo">
-                Arkiv Music
+                Saregama.ai
               </h1>
             </div>
             <nav className="flex items-center gap-4">
@@ -126,7 +125,6 @@ export default function Uploads() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <WalletButton />
           </div>
         </div>
@@ -136,7 +134,7 @@ export default function Uploads() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">Upload History</h1>
           <p className="text-muted-foreground" data-testid="text-page-subtitle">
-            View your uploads and transaction details on the Arkiv blockchain
+            View your uploads and blockchain transaction details
           </p>
         </div>
 
@@ -249,7 +247,7 @@ export default function Uploads() {
           <DialogHeader>
             <DialogTitle>Transaction Details</DialogTitle>
             <DialogDescription>
-              Arkiv blockchain transaction information for this upload
+              Blockchain transaction information for this upload
             </DialogDescription>
           </DialogHeader>
 
