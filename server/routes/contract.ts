@@ -392,6 +392,15 @@ export function registerContractRoutes(app: Express) {
       const paidAmount = parsed.args[3];
       const rentalEndTime = parsed.args[4];
 
+      console.log("Rental event parsed:", {
+        rentalId: rentalId.toString(),
+        catalogItemId,
+        renter,
+        paidAmount: paidAmount.toString(),
+        rentalEndTime: rentalEndTime.toString(),
+        expectedCatalogItemId,
+      });
+
       // Verify the renter matches the wallet address
       if (renter.toLowerCase() !== walletAddress.toLowerCase()) {
         return res.status(403).json({ error: "Wallet address does not match renter" });
@@ -399,7 +408,18 @@ export function registerContractRoutes(app: Express) {
 
       // Verify the catalog item matches the expected one
       if (expectedCatalogItemId && catalogItemId !== expectedCatalogItemId) {
-        return res.status(400).json({ error: "Catalog item mismatch" });
+        console.error("Catalog item mismatch:", {
+          received: catalogItemId,
+          expected: expectedCatalogItemId,
+          match: catalogItemId === expectedCatalogItemId,
+        });
+        return res.status(400).json({ 
+          error: "Catalog item mismatch",
+          details: {
+            received: catalogItemId,
+            expected: expectedCatalogItemId,
+          }
+        });
       }
 
       // Get catalog item from database and verify it exists
