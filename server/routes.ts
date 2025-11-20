@@ -369,6 +369,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Ensure user has a profile (create if doesn't exist)
+      let profile = await storage.getProfile(walletAddress);
+      if (!profile) {
+        profile = await storage.createProfile({
+          walletAddress,
+          displayName: null,
+          avatarUrl: null,
+        });
+      }
+
       // Validate catalog item exists
       const item = await storage.getCatalogItem(catalogItemId);
       if (!item) {
