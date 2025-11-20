@@ -75,20 +75,50 @@ export class FrontendContractClient {
     if (this.crossmintWallet) {
       try {
         console.log("Using Crossmint wallet for transactions");
+        console.log("Wallet methods:", Object.keys(this.crossmintWallet));
         
-        // Use Crossmint's executeContract method
-        const result = await this.crossmintWallet.executeContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: "purchaseRental",
-          args: [catalogItemId],
-          value: priceWei,
-        });
+        // Use EVMWallet from wallets-sdk with proper async handling
+        const { EVMWallet } = await import("@crossmint/wallets-sdk");
+        
+        console.log("Creating EVM wallet instance...");
+        
+        // Convert to EVM-specific wallet with better error handling
+        let evmWallet;
+        try {
+          evmWallet = EVMWallet.from(this.crossmintWallet);
+        } catch (conversionError: any) {
+          console.error("Failed to convert wallet:", conversionError);
+          throw new Error("Failed to initialize wallet for transactions");
+        }
+        
+        console.log("EVM wallet created, encoding transaction data");
 
+        // Encode the contract call data
+        const iface = new ethers.Interface(CONTRACT_ABI);
+        const data = iface.encodeFunctionData("purchaseRental", [catalogItemId]) as `0x${string}`;
+
+        console.log("Sending transaction to contract...");
+
+        // Send transaction using EVM wallet with explicit timeout handling
+        const result = await Promise.race([
+          evmWallet.sendTransaction({
+            to: CONTRACT_ADDRESS as `0x${string}`,
+            value: BigInt(priceWei),
+            data,
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Transaction approval timed out")), 120000)
+          )
+        ]) as any;
+        
         console.log("Transaction sent successfully:", result);
 
         // Extract transaction hash from result
-        const txHash = result.txId || result.transactionHash || result.hash;
+        const txHash = result.hash || result.txId || result.transactionHash;
+
+        if (!txHash) {
+          throw new Error("No transaction hash received");
+        }
 
         return {
           txHash,
@@ -98,10 +128,12 @@ export class FrontendContractClient {
         console.error("Crossmint transaction error:", error);
         
         // Parse error messages
-        if (error.message?.includes("user rejected") || error.message?.includes("User rejected")) {
-          throw new Error("User rejected the transaction");
+        if (error.message?.includes("user rejected") || error.message?.includes("User rejected") || error.message?.includes("timed out")) {
+          throw new Error("User rejected the transaction or approval timed out");
         } else if (error.message?.includes("insufficient funds")) {
           throw new Error("Insufficient funds in wallet");
+        } else if (error.message?.includes("Timed out waiting")) {
+          throw new Error("Wallet communication timed out. Please try again.");
         }
         
         throw new Error(`Transaction failed: ${error.message || 'Unknown error'}`);
