@@ -52,11 +52,16 @@ export function useContractPurchaseRental() {
       });
 
       if (data.txHash && data.walletAddress) {
+        // Wait 5 seconds before first verification attempt to give Sepolia time to mine
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
         // Poll for transaction confirmation
         let attempts = 0;
-        const maxAttempts = 60; // 60 attempts * 2 seconds = 2 minutes max
+        const maxAttempts = 60; // 60 attempts * 3 seconds = 3 minutes max
         
         const pollForConfirmation = async (): Promise<boolean> => {
+          attempts++;
+          
           try {
             const response = await apiRequest("POST", "/api/contract/rentals/verify", {
               txHash: data.txHash,
@@ -73,13 +78,18 @@ export function useContractPurchaseRental() {
             queryClient.invalidateQueries({ queryKey: ["/api/contract/rentals"] });
             return true;
           } catch (error: any) {
-            attempts++;
             const errorMessage = error.error || error.message || "Verification failed";
+            const statusCode = error.status || error.statusCode || 0;
             
-            // If transaction not found or not confirmed yet, keep polling
-            if ((errorMessage.includes("not found") || errorMessage.includes("not confirmed")) && attempts < maxAttempts) {
-              console.log(`Waiting for confirmation... (attempt ${attempts}/${maxAttempts})`);
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+            // If transaction not mined yet (404) or contract mismatch while pending (400), keep polling
+            const isPending = statusCode === 404 || 
+                            errorMessage.includes("not found") || 
+                            errorMessage.includes("Transaction is not") ||
+                            errorMessage.includes("not confirmed");
+            
+            if (isPending && attempts < maxAttempts) {
+              console.log(`Waiting for confirmation... (attempt ${attempts}/${maxAttempts}): ${errorMessage}`);
+              await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
               return pollForConfirmation();
             }
             
@@ -87,7 +97,7 @@ export function useContractPurchaseRental() {
             console.error("Failed to verify rental:", error);
             toast({
               title: "Verification Failed",
-              description: errorMessage.includes("not found") 
+              description: isPending
                 ? "Transaction is taking longer than expected. Please check your rentals in a few minutes."
                 : "Transaction succeeded but verification failed. Please contact support.",
               variant: "destructive",
