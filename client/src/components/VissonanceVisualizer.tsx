@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { Spectrum } from '@/lib/Spectrum';
 
 interface VissonanceVisualizerProps {
   audioElement: HTMLAudioElement | null;
@@ -13,11 +14,15 @@ export default function VissonanceVisualizer({ audioElement, isPlaying }: Visson
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
-  const geometriesRef = useRef<THREE.Mesh[]>([]);
+  const groupRef = useRef<THREE.Object3D | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const audioConnectedRef = useRef(false);
   const isPlayingRef = useRef(isPlaying);
+  const spectrumRef = useRef(new Spectrum());
+
+  const fftSize = 4096;
+  const numBars = 128;
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -37,16 +42,16 @@ export default function VissonanceVisualizer({ audioElement, isPlaying }: Visson
     const height = window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.0008);
+    scene.background = new THREE.Color(0x000000);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 1, 10000);
-    camera.position.z = 1000;
+    camera.position.y = 0;
+    camera.position.z = 250;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
-    renderer.setClearColor(0x000000, 1);
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -55,7 +60,7 @@ export default function VissonanceVisualizer({ audioElement, isPlaying }: Visson
       audioCtxRef.current = audioCtx;
 
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
+      analyser.fftSize = fftSize;
       analyserRef.current = analyser;
 
       const bufferLength = analyser.frequencyBinCount;
@@ -75,62 +80,101 @@ export default function VissonanceVisualizer({ audioElement, isPlaying }: Visson
       }
     }
 
-    const bars: THREE.Mesh[] = [];
-    const barCount = 128;
-    const radius = 400;
+    const group = new THREE.Object3D();
+    groupRef.current = group;
 
-    for (let i = 0; i < barCount; i++) {
-      const geometry = new THREE.BoxGeometry(10, 100, 10);
-      const material = new THREE.MeshPhongMaterial({
-        color: new THREE.Color().setHSL(i / barCount, 1, 0.5),
-        emissive: new THREE.Color().setHSL(i / barCount, 1, 0.3),
-        transparent: true,
-        opacity: 0.8,
+    const vertexShader = `
+      varying vec4 pos;
+      void main() {
+        pos = modelViewMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `;
+
+    const fragmentShader = `
+      uniform vec3 col;
+      varying vec4 pos;
+      void main() {
+        gl_FragColor = vec4( -pos.z/180.0 * col.r, -pos.z/180.0 * col.g, -pos.z/180.0 * col.b, 1.0 );
+      }
+    `;
+
+    for (let i = 0; i < numBars / 2; i++) {
+      const uniforms = {
+        col: { value: new THREE.Color('hsl(240, 100%, 50%)') },
+      };
+
+      const material = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
       });
-      const bar = new THREE.Mesh(geometry, material);
 
-      const angle = (i / barCount) * Math.PI * 2;
-      bar.position.x = Math.cos(angle) * radius;
-      bar.position.z = Math.sin(angle) * radius;
-      bar.position.y = 0;
+      let geometry = new THREE.PlaneGeometry(3, 500, 1);
+      geometry.rotateX(Math.PI / 1.8);
+      geometry.translate(0, 60, 0);
+      let plane = new THREE.Mesh(geometry, material);
+      plane.rotation.z = i * (Math.PI * 2 / numBars) + (Math.PI / numBars);
+      group.add(plane);
 
-      bar.lookAt(scene.position);
-      
-      scene.add(bar);
-      bars.push(bar);
+      geometry = new THREE.PlaneGeometry(3, 500, 1);
+      geometry.rotateX(Math.PI / 1.8);
+      geometry.translate(0, 60, 0);
+      plane = new THREE.Mesh(geometry, material);
+      plane.rotation.z = -i * (Math.PI * 2 / numBars) - (Math.PI / numBars);
+      group.add(plane);
     }
 
-    geometriesRef.current = bars;
-
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(0, 1, 1);
-    scene.add(light);
-
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
+    scene.add(group);
 
     let animationId: number;
+
+    const modn = (n: number, m: number) => ((n % m) + m) % m;
+
+    const getLoudness = (arr: Uint8Array): number => {
+      let sum = 0;
+      for (let i = 0; i < arr.length; i++) {
+        sum += arr[i];
+      }
+      return sum / arr.length;
+    };
+
+    const setUniformColor = (groupIndex: number, loudness: number) => {
+      const h = modn(250 - loudness * 2.2, 360);
+      const mesh = group.children[groupIndex] as THREE.Mesh;
+      const material = mesh.material as THREE.ShaderMaterial;
+      material.uniforms.col.value = new THREE.Color(`hsl(${h}, 100%, 50%)`);
+    };
 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
 
       if (analyserRef.current && dataArrayRef.current && isPlayingRef.current) {
         analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+        const loudness = getLoudness(dataArrayRef.current);
+        const visualArray = spectrumRef.current.GetVisualBins(dataArrayRef.current, numBars, 4, 1300);
 
-        bars.forEach((bar, i) => {
-          const dataIndex = Math.floor((i / barCount) * dataArrayRef.current!.length);
-          const value = dataArrayRef.current![dataIndex] / 255;
+        for (let i = 0; i < visualArray.length / 2; i++) {
+          setUniformColor(i * 2, loudness);
+
+          const mesh1 = group.children[i * 2] as THREE.Mesh;
+          const geometry1 = mesh1.geometry as THREE.BufferGeometry;
+          const positions1 = geometry1.attributes.position.array as Float32Array;
           
-          bar.scale.y = 0.5 + value * 5;
-          bar.position.y = (value * 200) - 100;
+          positions1[7] = visualArray[i] / 2 + (65 + loudness / 1.5);
+          positions1[10] = visualArray[i] / 2 + (65 + loudness / 1.5);
+          geometry1.attributes.position.needsUpdate = true;
+
+          const mesh2 = group.children[i * 2 + 1] as THREE.Mesh;
+          const geometry2 = mesh2.geometry as THREE.BufferGeometry;
+          const positions2 = geometry2.attributes.position.array as Float32Array;
           
-          const material = bar.material as THREE.MeshPhongMaterial;
-          material.emissive.setHSL(i / barCount, 1, value * 0.5);
-        });
+          positions2[7] = visualArray[i] / 2 + (65 + loudness / 1.5);
+          positions2[10] = visualArray[i] / 2 + (65 + loudness / 1.5);
+          geometry2.attributes.position.needsUpdate = true;
+        }
       }
 
-      camera.rotation.y += 0.001;
-      
       renderer.render(scene, camera);
     };
 
@@ -151,17 +195,20 @@ export default function VissonanceVisualizer({ audioElement, isPlaying }: Visson
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationId);
       
-      bars.forEach(bar => {
-        if (bar.geometry) bar.geometry.dispose();
-        if (bar.material) {
-          if (Array.isArray(bar.material)) {
-            bar.material.forEach(mat => mat.dispose());
-          } else {
-            bar.material.dispose();
+      if (group) {
+        group.children.forEach(child => {
+          const mesh = child as THREE.Mesh;
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(mat => mat.dispose());
+            } else {
+              mesh.material.dispose();
+            }
           }
-        }
-        scene.remove(bar);
-      });
+        });
+        scene.remove(group);
+      }
 
       if (renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -194,7 +241,7 @@ export default function VissonanceVisualizer({ audioElement, isPlaying }: Visson
     <div 
       ref={containerRef} 
       className="fixed inset-0 z-0"
-      style={{ background: 'radial-gradient(ellipse at center, #1a1a2e 0%, #0f0f1e 100%)' }}
+      style={{ background: 'radial-gradient(ellipse at center, #0a0a1e 0%, #000000 100%)' }}
     />
   );
 }
