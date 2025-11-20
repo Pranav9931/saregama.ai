@@ -54,24 +54,25 @@ export class ArkivClient {
    * Upload a single chunk to Arkiv blockchain
    * @param data Buffer containing chunk data
    * @param expiresInSeconds Expiration time in seconds (0 for very long expiration)
-   * @returns Entity key (ID) of uploaded chunk
+   * @returns Object with entityKey and txHash
    */
   async uploadChunk(
     data: Buffer,
     expiresInSeconds: number = 0
-  ): Promise<string> {
+  ): Promise<{ entityKey: string; txHash: string }> {
     if (!this.walletClient) {
       // Mock mode for development
       const mockId = `mock_entity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const mockTxHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
       console.log(`📦 [MOCK] Uploading chunk (${data.length} bytes) -> ${mockId}`);
-      return mockId;
+      return { entityKey: mockId, txHash: mockTxHash };
     }
 
     try {
       // Convert Buffer to Uint8Array for Arkiv SDK
       const payload = new Uint8Array(data);
       
-      const { entityKey } = await this.walletClient.createEntity({
+      const { entityKey, txHash } = await this.walletClient.createEntity({
         payload,
         contentType: 'application/octet-stream',
         attributes: [
@@ -81,8 +82,8 @@ export class ArkivClient {
         expiresIn: expiresInSeconds || 31536000, // 1 year if 0
       });
 
-      console.log(`✅ Chunk uploaded to Arkiv: ${entityKey} (${data.length} bytes)`);
-      return entityKey;
+      console.log(`✅ Chunk uploaded to Arkiv: ${entityKey} (${data.length} bytes) - TX: ${txHash}`);
+      return { entityKey, txHash };
     } catch (error) {
       console.error("Failed to upload chunk to Arkiv:", error);
       throw new Error(`Arkiv upload failed: ${error}`);
@@ -93,21 +94,22 @@ export class ArkivClient {
    * Upload playlist file to Arkiv blockchain
    * @param playlistContent M3U8 playlist content
    * @param expiresInSeconds Expiration time in seconds
-   * @returns Entity key (ID) of uploaded playlist
+   * @returns Object with entityKey and txHash
    */
   async uploadPlaylist(
     playlistContent: string,
     expiresInSeconds: number = 0
-  ): Promise<string> {
+  ): Promise<{ entityKey: string; txHash: string }> {
     if (!this.walletClient) {
       // Mock mode
       const mockId = `mock_playlist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const mockTxHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
       console.log(`📄 [MOCK] Uploading playlist -> ${mockId}`);
-      return mockId;
+      return { entityKey: mockId, txHash: mockTxHash };
     }
 
     try {
-      const { entityKey } = await this.walletClient.createEntity({
+      const { entityKey, txHash } = await this.walletClient.createEntity({
         payload: stringToPayload(playlistContent),
         contentType: 'application/vnd.apple.mpegurl',
         attributes: [
@@ -117,8 +119,8 @@ export class ArkivClient {
         expiresIn: expiresInSeconds || 31536000, // 1 year if 0
       });
 
-      console.log(`✅ Playlist uploaded to Arkiv: ${entityKey}`);
-      return entityKey;
+      console.log(`✅ Playlist uploaded to Arkiv: ${entityKey} - TX: ${txHash}`);
+      return { entityKey, txHash };
     } catch (error) {
       console.error("Failed to upload playlist to Arkiv:", error);
       throw new Error(`Arkiv playlist upload failed: ${error}`);
@@ -175,17 +177,18 @@ export class ArkivClient {
    * Clone (copy) an entity on Arkiv blockchain with new expiration
    * @param sourceEntityKey Source entity to clone
    * @param expiresInSeconds New expiration time in seconds
-   * @returns New entity key
+   * @returns Object with entityKey and txHash
    */
   async cloneEntity(
     sourceEntityKey: string,
     expiresInSeconds: number
-  ): Promise<string> {
+  ): Promise<{ entityKey: string; txHash: string }> {
     if (!this.walletClient || !this.publicClient) {
       // Mock mode
       const mockId = `mock_clone_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const mockTxHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
       console.log(`📋 [MOCK] Cloning entity ${sourceEntityKey} -> ${mockId}`);
-      return mockId;
+      return { entityKey: mockId, txHash: mockTxHash };
     }
 
     try {
@@ -193,7 +196,7 @@ export class ArkivClient {
       const sourceEntity = await this.publicClient.getEntity(sourceEntityKey);
 
       // Create new entity with same data but new expiration
-      const { entityKey: newEntityKey } = await this.walletClient.createEntity({
+      const { entityKey: newEntityKey, txHash } = await this.walletClient.createEntity({
         payload: sourceEntity.payload,
         contentType: sourceEntity.contentType,
         attributes: sourceEntity.attributes.map((attr: any) => ({
@@ -203,8 +206,8 @@ export class ArkivClient {
         expiresIn: expiresInSeconds,
       });
 
-      console.log(`✅ Cloned entity: ${sourceEntityKey} -> ${newEntityKey}`);
-      return newEntityKey;
+      console.log(`✅ Cloned entity: ${sourceEntityKey} -> ${newEntityKey} - TX: ${txHash}`);
+      return { entityKey: newEntityKey, txHash };
     } catch (error) {
       console.error(`Failed to clone entity ${sourceEntityKey}:`, error);
       throw new Error(`Arkiv clone failed: ${error}`);

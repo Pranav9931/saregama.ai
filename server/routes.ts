@@ -208,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Upload playlist to Arkiv
           const playlistContent = await fs.readFile(result.playlistPath, 'utf-8');
-          const masterPlaylistId = await arkivClient.uploadPlaylist(playlistContent, 0);
+          const { entityKey: masterPlaylistId, txHash: masterPlaylistTxHash } = await arkivClient.uploadPlaylist(playlistContent, 0);
           
           // Upload chunks to Arkiv with linked-list structure
           const arkivChunks: any[] = [];
@@ -217,11 +217,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const chunkData = await fs.readFile(chunk.filePath);
             
             // Upload to Arkiv
-            const arkivEntityId = await arkivClient.uploadChunk(chunkData, 0);
+            const { entityKey: arkivEntityId, txHash: arkivTxHash } = await arkivClient.uploadChunk(chunkData, 0);
             
             arkivChunks.push({
               sequence: i,
               arkivEntityId,
+              arkivTxHash,
               sizeBytes: chunk.sizeBytes,
             });
             
@@ -237,6 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             description: req.body.description || null,
             coverUrl: req.body.coverUrl || null,
             masterPlaylistId,
+            masterPlaylistTxHash,
             priceEth: "0.0001",
             durationSeconds: result.durationSeconds,
             category: category || "new-releases",
@@ -251,6 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               catalogItemId: catalogItem.id,
               sequence: i,
               arkivEntityId: arkivChunks[i].arkivEntityId,
+              arkivTxHash: arkivChunks[i].arkivTxHash,
               nextChunkId,
               sizeBytes: arkivChunks[i].sizeBytes,
               expiresAt: null, // Master chunks don't expire
@@ -361,7 +364,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (item.masterPlaylistId && arkivClient.isInitialized()) {
         const expirationSeconds = rentalDurationDays * 24 * 60 * 60;
-        rentalPlaylistId = await arkivClient.cloneEntity(item.masterPlaylistId, expirationSeconds);
+        const { entityKey } = await arkivClient.cloneEntity(item.masterPlaylistId, expirationSeconds);
+        rentalPlaylistId = entityKey;
       }
 
       // Create rental record

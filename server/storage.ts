@@ -94,6 +94,7 @@ export class MemStorage implements IStorage {
         durationSeconds: 245,
         coverUrl: "https://picsum.photos/seed/track1/400/400",
         masterPlaylistId: "arkiv_entity_demo_track1_playlist",
+        masterPlaylistTxHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
         priceEth: "0.0001",
         createdAt: new Date("2024-01-15"),
       },
@@ -108,6 +109,7 @@ export class MemStorage implements IStorage {
         durationSeconds: 312,
         coverUrl: "https://picsum.photos/seed/track2/400/400",
         masterPlaylistId: "arkiv_entity_demo_track2_playlist",
+        masterPlaylistTxHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
         priceEth: "0.0001",
         createdAt: new Date("2024-02-20"),
       },
@@ -122,6 +124,7 @@ export class MemStorage implements IStorage {
         durationSeconds: 198,
         coverUrl: "https://picsum.photos/seed/track3/400/400",
         masterPlaylistId: "arkiv_entity_demo_track3_playlist",
+        masterPlaylistTxHash: "0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456",
         priceEth: "0.0001",
         createdAt: new Date("2024-03-10"),
       },
@@ -136,6 +139,7 @@ export class MemStorage implements IStorage {
         durationSeconds: 267,
         coverUrl: "https://picsum.photos/seed/track4/400/400",
         masterPlaylistId: "arkiv_entity_demo_track4_playlist",
+        masterPlaylistTxHash: "0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
         priceEth: "0.0001",
         createdAt: new Date("2024-04-05"),
       },
@@ -150,6 +154,7 @@ export class MemStorage implements IStorage {
         durationSeconds: 420,
         coverUrl: "https://picsum.photos/seed/track5/400/400",
         masterPlaylistId: "arkiv_entity_demo_track5_playlist",
+        masterPlaylistTxHash: "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         priceEth: "0.0001",
         createdAt: new Date("2024-05-12"),
       },
@@ -157,6 +162,48 @@ export class MemStorage implements IStorage {
 
     for (const item of demoItems) {
       this.catalogItems.set(item.id, item);
+    }
+
+    // Seed demo chunks for the first track to demonstrate blockchain storage
+    const firstItemId = demoItems[0].id;
+    const demoChunks: CatalogChunk[] = [
+      {
+        id: randomUUID(),
+        catalogItemId: firstItemId,
+        sequence: 0,
+        arkivEntityId: "arkiv_chunk_demo_track1_00",
+        arkivTxHash: "0xabc1234567890def1234567890abc1234567890def1234567890abc1234567890",
+        nextChunkId: null,
+        sizeBytes: 524288,
+        expiresAt: null,
+        createdAt: new Date("2024-01-15"),
+      },
+      {
+        id: randomUUID(),
+        catalogItemId: firstItemId,
+        sequence: 1,
+        arkivEntityId: "arkiv_chunk_demo_track1_01",
+        arkivTxHash: "0xdef9876543210abc9876543210def9876543210abc9876543210def987654321",
+        nextChunkId: null,
+        sizeBytes: 498432,
+        expiresAt: null,
+        createdAt: new Date("2024-01-15"),
+      },
+      {
+        id: randomUUID(),
+        catalogItemId: firstItemId,
+        sequence: 2,
+        arkivEntityId: "arkiv_chunk_demo_track1_02",
+        arkivTxHash: "0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890",
+        nextChunkId: null,
+        sizeBytes: 512000,
+        expiresAt: null,
+        createdAt: new Date("2024-01-15"),
+      },
+    ];
+
+    for (const chunk of demoChunks) {
+      this.catalogChunks.set(chunk.id, chunk);
     }
   }
 
@@ -236,6 +283,7 @@ export class MemStorage implements IStorage {
       description: insertItem.description ?? null,
       coverUrl: insertItem.coverUrl ?? null,
       masterPlaylistId: insertItem.masterPlaylistId ?? null,
+      masterPlaylistTxHash: insertItem.masterPlaylistTxHash ?? null,
       priceEth: insertItem.priceEth ?? "0.0001",
       durationSeconds: insertItem.durationSeconds,
       category: insertItem.category ?? null,
@@ -275,6 +323,7 @@ export class MemStorage implements IStorage {
       catalogItemId: insertChunk.catalogItemId,
       sequence: insertChunk.sequence,
       arkivEntityId: insertChunk.arkivEntityId,
+      arkivTxHash: insertChunk.arkivTxHash ?? null,
       nextChunkId: insertChunk.nextChunkId ?? null,
       sizeBytes: insertChunk.sizeBytes,
       expiresAt: insertChunk.expiresAt ?? null,

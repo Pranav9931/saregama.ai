@@ -27,6 +27,7 @@ export const catalogItems = pgTable("catalog_items", {
   description: text("description"),
   coverUrl: text("cover_url"),
   masterPlaylistId: text("master_playlist_id"), // Arkiv entity ID for master playlist
+  masterPlaylistTxHash: text("master_playlist_tx_hash"), // Arkiv transaction hash for master playlist creation
   priceEth: decimal("price_eth", { precision: 18, scale: 10 }).default("0.0001").notNull(),
   durationSeconds: integer("duration_seconds").notNull(),
   category: text("category"), // 'featured', 'trending', 'new-releases', etc.
@@ -47,6 +48,7 @@ export const catalogChunks = pgTable("catalog_chunks", {
   catalogItemId: varchar("catalog_item_id").notNull().references(() => catalogItems.id),
   sequence: integer("sequence").notNull(), // 0, 1, 2, etc.
   arkivEntityId: text("arkiv_entity_id").notNull(), // Arkiv entity ID for this chunk
+  arkivTxHash: text("arkiv_tx_hash"), // Arkiv transaction hash for chunk creation
   nextChunkId: varchar("next_chunk_id"), // Points to next chunk in linked list
   sizeBytes: integer("size_bytes").notNull(),
   expiresAt: timestamp("expires_at"), // null for master chunks (very long expiration)

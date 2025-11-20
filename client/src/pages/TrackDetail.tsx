@@ -7,10 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Play, Clock, Wallet } from 'lucide-react';
 import WalletButton from '@/components/WalletButton';
 import ThemeToggle from '@/components/ThemeToggle';
+import BlockchainInfo from '@/components/BlockchainInfo';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
-import type { CatalogItem } from '@shared/schema';
+import type { CatalogItem, CatalogChunk } from '@shared/schema';
 
 export default function TrackDetail() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,11 @@ export default function TrackDetail() {
 
   const { data: item, isLoading } = useQuery<CatalogItem & { chunkCount: number }>({
     queryKey: ['/api/catalog', id],
+    enabled: !!id,
+  });
+
+  const { data: chunks } = useQuery<CatalogChunk[]>({
+    queryKey: ['/api/catalog', id, 'chunks'],
     enabled: !!id,
   });
 
@@ -171,6 +177,11 @@ export default function TrackDetail() {
                 </div>
               </div>
             </Card>
+
+            <BlockchainInfo 
+              masterPlaylistTxHash={item.masterPlaylistTxHash}
+              chunks={chunks}
+            />
           </div>
 
           <div className="space-y-6">
