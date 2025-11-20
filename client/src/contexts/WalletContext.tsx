@@ -23,6 +23,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const walletAddress = wallet?.address || null;
   const isConnected = !!walletAddress;
 
+  useEffect(() => {
+    console.log('Crossmint Auth State:', { user, jwt: !!jwt, wallet, walletStatus, walletAddress });
+  }, [user, jwt, wallet, walletStatus, walletAddress]);
+
   const connectWallet = async () => {
     setIsConnecting(true);
     try {

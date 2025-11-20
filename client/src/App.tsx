@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { CrossmintProvider, CrossmintAuthProvider } from "@crossmint/client-sdk-react-ui";
+import { CrossmintProvider, CrossmintAuthProvider, CrossmintWalletProvider } from "@crossmint/client-sdk-react-ui";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { ChunkFetchProvider } from "@/contexts/ChunkFetchContext";
 import Browse from "@/pages/Browse";
@@ -50,14 +50,21 @@ function App() {
         <CrossmintAuthProvider
           loginMethods={["email", "google", "twitter"]}
         >
-          <WalletProvider>
-            <ChunkFetchProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Router />
-              </TooltipProvider>
-            </ChunkFetchProvider>
-          </WalletProvider>
+          <CrossmintWalletProvider
+            createOnLogin={{
+              chain: "base",
+              signer: { type: "email" },
+            }}
+          >
+            <WalletProvider>
+              <ChunkFetchProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Router />
+                </TooltipProvider>
+              </ChunkFetchProvider>
+            </WalletProvider>
+          </CrossmintWalletProvider>
         </CrossmintAuthProvider>
       </CrossmintProvider>
     </QueryClientProvider>
