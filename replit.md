@@ -84,12 +84,12 @@ Preferred communication style: Simple, everyday language.
 **Storage Abstraction:**
 - `IStorage` interface abstracts database operations
 - Enables swapping implementations without changing business logic
-- Currently implemented with in-memory storage (suitable for development/demo)
+- Currently implemented with PostgreSQL database (DbStorage) for persistent storage
 
 **Design Trade-offs:**
 - Linked-list chunk structure enables sequential streaming but requires multiple reads
 - Rental expiration checked on-demand rather than background jobs (simpler but less proactive)
-- In-memory storage is not persistent - production would need PostgreSQL implementation
+- All wallet addresses are normalized to lowercase for consistent querying and data integrity
 
 ### Blockchain Integration
 
